@@ -176,6 +176,31 @@ function getDatabase() {
         `);
     } catch (_) {}
 
+    try {
+        const tableInfo = db.prepare("PRAGMA table_info(whatsapp_logs)").all();
+        const caseIdCol = tableInfo.find(c => c.name === 'case_id');
+        if (caseIdCol && caseIdCol.notnull === 1) {
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS whatsapp_logs_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id INTEGER,
+                    client_id INTEGER,
+                    client_name TEXT NOT NULL,
+                    phone TEXT NOT NULL,
+                    message_text TEXT NOT NULL,
+                    status TEXT DEFAULT 'Delivered',
+                    whatsapp_url TEXT,
+                    sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
+                );
+                INSERT INTO whatsapp_logs_new SELECT * FROM whatsapp_logs;
+                DROP TABLE whatsapp_logs;
+                ALTER TABLE whatsapp_logs_new RENAME TO whatsapp_logs;
+            `);
+        }
+    } catch (_) {}
+
 
 
     return db;

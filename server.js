@@ -539,10 +539,14 @@ const server = http.createServer(async (req, res) => {
                     const c = db.prepare('SELECT id FROM cases WHERE client_id = ? LIMIT 1').get(matchedClient.id);
                     const caseId = c ? c.id : null;
 
-                    db.prepare(`
-                        INSERT INTO whatsapp_logs (case_id, client_id, client_name, phone, message_text, status, whatsapp_url, sent_at)
-                        VALUES (?, ?, ?, ?, ?, 'Delivered', ?, ?)
-                    `).run(caseId, matchedClient.id, matchedClient.name, matchedClient.phone, waMsg, waLink, createdAt);
+                    try {
+                        db.prepare(`
+                            INSERT INTO whatsapp_logs (case_id, client_id, client_name, phone, message_text, status, whatsapp_url, sent_at)
+                            VALUES (?, ?, ?, ?, ?, 'Delivered', ?, ?)
+                        `).run(caseId, matchedClient.id, matchedClient.name, matchedClient.phone, waMsg, waLink, createdAt);
+                    } catch (logErr) {
+                        console.warn('[WhatsApp Log] Non-fatal log insert:', logErr.message);
+                    }
                 } else {
                     console.log(`[SMS Gateway] Dispatched DLT OTP ${otpCode} to ${matchedClient.phone}`);
                 }
