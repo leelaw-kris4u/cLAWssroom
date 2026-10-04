@@ -1467,45 +1467,17 @@
             <form id="clientLoginStep1" onsubmit="app.handleRequestOtp(event)">
                 <div class="modal-body form-grid">
                     <div class="form-group col-12">
-                        <label>Registered Mobile Number (+91) *</label>
+                        <label>Mobile Number (+91) *</label>
                         <div style="display:flex; gap:8px;">
                             <input type="text" value="+91" disabled style="width:60px; text-align:center; font-weight:700;">
-                            <input type="tel" id="clientLoginPhone" required placeholder="98490 21455" style="flex:1; font-size:16px; font-weight:600; letter-spacing:1px;">
-                        </div>
-                    </div>
-
-                    <!-- Channel: WhatsApp or SMS -->
-                    <div class="form-group col-12">
-                        <label>Issue OTP via Channel *</label>
-                        <div class="otp-channel-selector">
-                            <label class="otp-channel-card selected" id="channelCardWhatsApp" onclick="app.selectOtpChannel('WhatsApp')">
-                                <input type="radio" name="otpDeliveryChannel" value="WhatsApp" checked style="accent-color:#25d366;">
-                                <div class="otp-channel-icon">🟢</div>
-                                <div class="otp-channel-info">
-                                    <strong>WhatsApp Alert</strong>
-                                    <span>Instant OTP via WhatsApp</span>
-                                </div>
-                            </label>
-                            <label class="otp-channel-card" id="channelCardSMS" onclick="app.selectOtpChannel('SMS')">
-                                <input type="radio" name="otpDeliveryChannel" value="SMS" style="accent-color:#38bdf8;">
-                                <div class="otp-channel-icon">💬</div>
-                                <div class="otp-channel-info">
-                                    <strong>Mobile SMS</strong>
-                                    <span>Standard telecom DLT SMS</span>
-                                </div>
-                            </label>
+                            <input type="tel" id="clientLoginPhone" required placeholder="Enter 10-digit mobile number" style="flex:1; font-size:16px; font-weight:600; letter-spacing:1px;">
                         </div>
                     </div>
 
                     <div class="form-group col-12">
-                        <label style="font-size:11px; color:var(--text-muted);">Quick-Select Registered Chamber Clients (Demo Test):</label>
-                        <div class="client-quick-pills">
-                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9849021455')">M. Sridhar Reddy (98490 21455)</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9440188921')">G. Mahendernath Yadav (94401 88921)</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9885233100')">AKRT Prabhu (98852 33100)</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9177044211')">Smt. Savitha (91770 44211)</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9848012345')">Dolphin Hotels (98480 12345)</button>
-                        </div>
+                        <label>Your Full Name <span style="font-size:11px; color:var(--text-muted);">(Optional for new numbers)</span></label>
+                        <input type="text" id="clientLoginName" placeholder="Enter your full name" style="width:100%; font-size:14px; padding:10px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-primary);">
+                        <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:6px;">✨ Any Indian 10-digit mobile number can log in. New mobile numbers are automatically registered upon OTP verification.</span>
                     </div>
 
                     <div class="col-12" id="clientLoginError" style="display:none; color:var(--accent-rose); font-size:12.5px; background:rgba(244,63,94,0.1); padding:10px; border-radius:var(--radius-md); border:1px solid rgba(244,63,94,0.3);">

@@ -2185,8 +2185,16 @@ class IndianLegalPortalApp {
         // Reset forms
         const step1 = document.getElementById('clientLoginStep1');
         const step2 = document.getElementById('clientLoginStep2');
-        if (step1) { step1.classList.remove('hidden'); step1.reset(); }
-        if (step2) { step2.classList.add('hidden'); step2.reset(); }
+        if (step1) { 
+            step1.classList.remove('hidden'); 
+            step1.reset(); 
+        }
+        if (step2) { 
+            step2.classList.add('hidden'); 
+            step2.reset(); 
+        }
+        const nameInput = document.getElementById('clientLoginName');
+        if (nameInput) nameInput.value = '';
 
         this.selectOtpChannel('WhatsApp');
         this.stopOtpTimer();
@@ -2233,12 +2241,13 @@ class IndianLegalPortalApp {
     async handleRequestOtp(e) {
         if (e) e.preventDefault();
         const rawPhone = document.getElementById('clientLoginPhone').value.trim();
+        const rawName = (document.getElementById('clientLoginName')?.value || '').trim();
         const errEl = document.getElementById('clientLoginError');
         if (errEl) errEl.style.display = 'none';
 
         if (!rawPhone) {
             if (errEl) {
-                errEl.textContent = 'Please enter a registered 10-digit Indian mobile number.';
+                errEl.textContent = 'Please enter a 10-digit Indian mobile number.';
                 errEl.style.display = 'block';
             }
             return;
@@ -2250,6 +2259,7 @@ class IndianLegalPortalApp {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phone: rawPhone,
+                    name: rawName,
                     channel: this.selectedOtpChannel
                 })
             });
@@ -2257,7 +2267,7 @@ class IndianLegalPortalApp {
 
             if (!res.ok) {
                 if (errEl) {
-                    errEl.textContent = data.error || 'Mobile number not found in chamber client roster.';
+                    errEl.textContent = data.error || 'Failed to generate OTP. Please try again.';
                     errEl.style.display = 'block';
                 }
                 return;

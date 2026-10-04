@@ -69,8 +69,25 @@ function parseJsonBody(req) {
                 reject(err);
             }
         });
-        req.on('error', reject);
+}
+
+function getOrCreateClientByPhone(db, digits, inputPhone, requestedName) {
+    const clients = db.prepare('SELECT * FROM clients').all();
+    let matchedClient = clients.find(cl => {
+        const clDigits = (cl.phone || '').replace(/\D/g, '').slice(-10);
+        return clDigits === digits;
     });
+
+    if (!matchedClient) {
+        const formattedPhone = `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+        const clientName = (requestedName && requestedName.trim()) || `Client (+91 ${digits.slice(0, 5)} ${digits.slice(5)})`;
+        const result = db.prepare(`
+            INSERT INTO clients (name, phone, client_type, bci_conflict_check)
+            VALUES (?, ?, 'Individual', 1)
+        `).run(clientName, formattedPhone);
+        matchedClient = db.prepare('SELECT * FROM clients WHERE id = ?').get(result.lastInsertRowid);
+    }
+    return matchedClient;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -488,18 +505,8 @@ const server = http.createServer(async (req, res) => {
                     return sendJson(res, 400, { error: 'Please enter a valid 10-digit registered Indian mobile number.' });
                 }
 
-                // Match in clients table
-                const clients = db.prepare('SELECT * FROM clients').all();
-                const matchedClient = clients.find(cl => {
-                    const clDigits = (cl.phone || '').replace(/\D/g, '').slice(-10);
-                    return clDigits === digits;
-                });
-
-                if (!matchedClient) {
-                    return sendJson(res, 404, {
-                        error: `No client registered with mobile number ending in ...${digits.slice(-4)}. Please check with the Advocate's Chambers to register your mobile number.`
-                    });
-                }
+                // Match in clients table or auto-register new mobile number
+                const matchedClient = getOrCreateClientByPhone(db, digits, inputPhone, b.name);
 
                 // Generate 6-digit OTP code
                 const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -565,16 +572,8 @@ const server = http.createServer(async (req, res) => {
                     return sendJson(res, 400, { error: 'Please enter the complete 6-digit OTP code.' });
                 }
 
-                // Match client
-                const clients = db.prepare('SELECT * FROM clients').all();
-                const matchedClient = clients.find(cl => {
-                    const clDigits = (cl.phone || '').replace(/\D/g, '').slice(-10);
-                    return clDigits === digits;
-                });
-
-                if (!matchedClient) {
-                    return sendJson(res, 404, { error: 'Client record not found for this mobile number.' });
-                }
+                // Match or auto-register client
+                const matchedClient = getOrCreateClientByPhone(db, digits, inputPhone, b.name);
 
                 // Find active pending OTP
                 const pendingOtp = db.prepare(`
@@ -620,18 +619,8 @@ const server = http.createServer(async (req, res) => {
                     return sendJson(res, 400, { error: 'Please enter a valid 10-digit registered Indian mobile number.' });
                 }
 
-                // Search in clients table
-                const clients = db.prepare('SELECT * FROM clients').all();
-                const matchedClient = clients.find(cl => {
-                    const clDigits = (cl.phone || '').replace(/\D/g, '').slice(-10);
-                    return clDigits === digits;
-                });
-
-                if (!matchedClient) {
-                    return sendJson(res, 404, {
-                        error: `No client registered with mobile number ending in ...${digits.slice(-4)}. Please check with the Advocate's Chambers to register your mobile number.`
-                    });
-                }
+                // Search in clients table or auto-register new mobile number
+                const matchedClient = getOrCreateClientByPhone(db, digits, inputPhone, b.name);
 
                 const casesCount = db.prepare('SELECT COUNT(*) as cnt FROM cases WHERE client_id = ?').get(matchedClient.id).cnt;
 
