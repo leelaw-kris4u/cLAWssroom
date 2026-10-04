@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OFFICE OF THE cLAWssroom | A. LEELA KRISHNA (BA. LLB.) Advocate | Telangana High Court &amp; Supreme Court</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-dark">
+    <!-- Main Shell -->
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand" id="brandLogoBtn" onclick="app.goToHomePage()" title="OFFICE OF THE cLAWssroom - Return to Home / Chambers Overview" role="button" tabindex="0">
+                <div class="brand-icon">
+                    <!-- Indian Scales of Justice Motif -->
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3v18M3 9l9-6 9 6M3 9v4c0 3 4 5 9 5s9-2 9-5V9M6 9l-3 6h6L6 9zm12 0l-3 6h6l-3-6z"/>
+                        <circle cx="12" cy="18" r="2" fill="currentColor"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <div class="brand-office-sub">OFFICE OF THE</div>
+                    <h1>cLAWssroom</h1>
+                    <span class="brand-adv-name">A. LEELA KRISHNA Advocate</span>
+                    <span class="brand-courts">TS High Court &amp; Supreme Court</span>
+                </div>
+            </div>
+
+            <div class="jurisdiction-banner">
+                <span class="flag-icon">🇮🇳</span>
+                <span class="jurisdiction-text">BCI Enrol: TS/3581/2018</span>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-view="dashboard">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span>Chamber Dashboard</span>
+                </button>
+                <button class="nav-item" data-view="cases">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>eCourts Case Vault</span>
+                    <span class="badge-count" id="navCaseCount">0</span>
+                </button>
+                <button class="nav-item" data-view="calendar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                        <circle cx="12" cy="15" r="2" fill="currentColor"></circle>
+                    </svg>
+                    <span>Case Calendar (NDOH)</span>
+                    <span class="badge-count" id="navCalendarCount">0</span>
+                </button>
+                <button class="nav-item" data-view="hearings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                    </svg>
+                    <span>Daily Cause List</span>
+                    <span class="badge-count warning" id="navHearingCount">0</span>
+                </button>
+                <button class="nav-item" data-view="tasks">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 11l3 3L22 4"></path>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    <span>Filings & Deadlines</span>
+                    <span class="badge-count" id="navTaskCount">0</span>
+                </button>
+                <button class="nav-item" data-view="clients">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Client Roster (BCI)</span>
+                </button>
+                <button class="nav-item" data-view="billing">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <!-- Indian Rupee symbol icon -->
+                        <path d="M6 3h12M6 8h12M6 13l7 8M6 13h5a4 4 0 0 0 0-8H6"/>
+                    </svg>
+                    <span>Fee Ledger (₹ INR)</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status">
+                    <span class="status-dot online"></span>
+                    <span class="status-label">Local eCourts DB Active</span>
+                </div>
+                <div class="footer-actions">
+                    <button class="btn-icon" id="themeToggleBtn" title="Toggle Light/Dark Theme">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button class="btn-icon" id="exportBackupBtn" title="Export Chamber Backup (JSON)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Header Bar -->
+            <header class="top-header">
+                <div class="header-left">
+                    <h2 id="pageTitle">Chambers Overview</h2>
+                    <span class="sub-date" id="currentDateDisplay">Loading Indian Court date...</span>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="globalSearchInput" placeholder="Search CNR, OS/CC No, Petitioner, Respondent, Court...">
+                    </div>
+                    <button class="btn btn-outline" id="btnOpenClientLogin" onclick="app.openClientLoginModal()" title="Client Access using registered mobile number">
+                        <span style="font-size:15px;">📱</span>
+                        <span>Client Login</span>
+                    </button>
+                    <button class="btn btn-primary" id="btnQuickNewCase">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>New Vakalat / Case Intake</span>
+                        <span id="quickDraftPill" class="draft-pill hidden" title="Unsaved draft intake in progress">Draft</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Client Access Mode Banner (Active when client logs in by phone) -->
+            <div id="clientPortalBanner" class="client-mode-banner hidden">
+                <div class="client-banner-left">
+                    <span class="badge" style="background:#128c7e; color:white; font-size:11px; font-weight:700;">📱 Client Access Active</span>
+                    <span class="client-welcome-msg">Client: <strong id="cbClientName">-</strong> (<span id="cbClientPhone" class="font-mono">-</span>)</span>
+                    <span class="client-scope-pill" id="cbCasesScope">Showing strictly your legal matters</span>
+                </div>
+                <div class="client-banner-right">
+                    <button class="btn btn-sm btn-outline-light" onclick="app.logoutClientPortal()">
+                        <span>← Return to Advocate Chambers Mode</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Toast Container -->
+            <div id="toastContainer" class="toast-container"></div>
+
+            <!-- View 1: Dashboard -->
+            <section id="view-dashboard" class="content-view active">
+                <!-- Chambers Official Letterhead & Profile Hero Banner -->
+                <div class="chambers-profile-card">
+                    <div class="chambers-profile-main">
+                        <div class="chambers-emblem-badge">
+                            <span class="scales-emblem">⚖️</span>
+                        </div>
+                        <div class="chambers-title-block">
+                            <div class="chambers-office-tag">OFFICE OF THE</div>
+                            <h1 class="chambers-firm-name">cLAWssroom</h1>
+                            <div class="chambers-advocate-lead">A. LEELA KRISHNA <span class="degree">(BA. LLB.)</span> <span class="designation">Advocate</span></div>
+                            <div class="chambers-courts-line">Telangana State High Court and Supreme Court of India</div>
+                        </div>
+                    </div>
+                    <div class="chambers-meta-block">
+                        <div class="chambers-meta-item">
+                            <span class="meta-label">BAR COUNCIL ENROLLMENT</span>
+                            <span class="meta-val highlight font-mono">TS/3581/2018</span>
+                        </div>
+                        <div class="chambers-meta-item">
+                            <span class="meta-label">ADDRESS FOR SERVICES</span>
+                            <span class="meta-val address-val">Plot No. 94/95, AVR Signature, Sri Viswamithra Enclave-1, Koheda Road, Toroor, Hayathnagar, Ranga Reddy District-501505</span>
+                        </div>
+                        <div class="chambers-meta-contact-row">
+                            <a href="mailto:leela.kris4u@gmail.com" class="contact-pill" title="Send Email">
+                                <span>✉️ leela.kris4u@gmail.com</span>
+                            </a>
+                            <a href="https://wa.me/919493489498" target="_blank" rel="noopener" class="contact-pill whatsapp-pill" title="Chat on WhatsApp">
+                                <span>💬 WhatsApp: +91-9493489498</span>
+                            </a>
+                            <a href="tel:+918121578785" class="contact-pill" title="Call Cell">
+                                <span>📞 Cell: +91-8121578785</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Urgency Alert Bar -->
+                <div id="urgentAlertBar" class="urgent-banner hidden">
+                    <div class="urgent-icon">⚠️</div>
+                    <div class="urgent-text">
+                        <strong>Urgent Matters on Board:</strong> Bail applications, NBW recall, or interim stay listings requiring urgent appearance.
+                    </div>
+                    <button class="btn btn-sm btn-outline-light" onclick="app.showUrgentCases()">View Urgent Matters</button>
+                </div>
+
+                <!-- KPI Metric Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon-wrapper blue">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Active Matters Pending</span>
+                            <span class="stat-value" id="kpiActiveCases">0</span>
+                            <span class="stat-sub" id="kpiTotalCases">0 total eCourts matters</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon-wrapper amber">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Listed on Cause List</span>
+                            <span class="stat-value" id="kpiUpcomingHearings">0</span>
+                            <span class="stat-sub">Court dates & Board listings</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon-wrapper emerald">
+                            <span class="rupee-stat-icon">₹</span>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Professional Fee Billed</span>
+                            <span class="stat-value" id="kpiTotalBilled">₹0</span>
+                            <span class="stat-sub" id="kpiUnbilledHours">₹0 pending fee recovery</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon-wrapper purple">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 11l3 3L22 4"></path>
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Filing Deadlines / Tasks</span>
+                            <span class="stat-value" id="kpiPendingTasks">0</span>
+                            <span class="stat-sub" id="kpiTotalClients">0 active clients</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Two-Column Section: Cause List & Practice Areas -->
+                <div class="dashboard-columns">
+                    <div class="dash-card">
+                        <div class="dash-card-header">
+                            <h3>Next Cause List / Court Appearances</h3>
+                            <button class="btn btn-sm btn-outline" onclick="app.navigate('hearings')">View Daily Board</button>
+                        </div>
+                        <div class="dash-card-body" id="dashHearingsList">
+                            <div class="empty-state">Loading court cause list...</div>
+                        </div>
+                    </div>
+
+                    <div class="dash-card">
+                        <div class="dash-card-header">
+                            <h3>Case Distribution by Practice Area</h3>
+                            <button class="btn btn-sm btn-outline" onclick="app.navigate('cases')">View Matters</button>
+                        </div>
+                        <div class="dash-card-body" id="dashPracticeAreasList">
+                            <div class="empty-state">Loading practice areas...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Matters Table -->
+                <div class="dash-card full-width">
+                    <div class="dash-card-header">
+                        <h3>Recently Handled Court Matters (eCourts Register)</h3>
+                        <button class="btn btn-sm btn-primary" onclick="app.openNewCaseModal()">+ New Vakalat Intake</button>
+                    </div>
+                    <div class="dash-card-body" id="dashRecentCasesTable">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- View 2: Cases Vault -->
+            <section id="view-cases" class="content-view">
+                <div class="view-toolbar">
+                    <div class="filters-row">
+                        <div class="filter-group">
+                            <label>Practice Area</label>
+                            <select id="caseFilterPracticeArea">
+                                <option value="All">All Practice Areas</option>
+                                <option value="Civil Suits, Property & Injunctions">Civil Suits & Injunctions</option>
+                                <option value="Criminal Law & Bail Matters">Criminal & Bail Matters</option>
+                                <option value="Negotiable Instruments (Sec 138 NI Act)">Sec 138 NI Act (Cheque Bounce)</option>
+                                <option value="Matrimonial & Family Law">Matrimonial & Family Law</option>
+                                <option value="Commercial & Corporate Disputes">Commercial & Corporate</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Case Type</label>
+                            <select id="caseFilterType">
+                                <option value="All">All Case Types</option>
+                                <option value="OS">OS (Original Suit)</option>
+                                <option value="CC">CC (Calendar / Criminal Case)</option>
+                                <option value="STC.NI">STC.NI (Sec 138 NI Act)</option>
+                                <option value="DVC">DVC (Domestic Violence Case)</option>
+                                <option value="F.C.O.P">F.C.O.P (Family Court OP)</option>
+                                <option value="H.M.O.P">H.M.O.P (Hindu Marriage OP)</option>
+                                <option value="CRLMP.BAIL">CRLMP.BAIL (Bail Petition)</option>
+                                <option value="CRLA">CRLA (Criminal Appeal)</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Matter Status</label>
+                            <select id="caseFilterStatus">
+                                <option value="All">All Statuses</option>
+                                <option value="Active">Active / Pending Matters</option>
+                                <option value="Draft">Drafts / Intake in Progress</option>
+                                <option value="Evidence Stage">Evidence Stage (PW/DW)</option>
+                                <option value="Pleadings & Issues">Pleadings / WS / Issues</option>
+                                <option value="Notice & Summons Stage">Notice & Summons</option>
+                                <option value="Reserved for Orders">Reserved for Orders</option>
+                                <option value="Disposed">Disposed / Decreed / Dismissed</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Priority</label>
+                            <select id="caseFilterPriority">
+                                <option value="All">All Priorities</option>
+                                <option value="Urgent">Urgent (Bail / Injunction)</option>
+                                <option value="High">High (Evidence / Arguments)</option>
+                                <option value="Regular">Regular</option>
+                            </select>
+                        </div>
+                        <div class="filter-group btn-end">
+                            <button class="btn btn-secondary" id="resetFiltersBtn">Reset Filters</button>
+                        </div>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-primary" onclick="app.openNewCaseModal()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Add Case to Docket</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cases List Container -->
+                <div class="cases-table-container">
+                    <table class="data-table" id="casesTable">
+                        <thead>
+                            <tr>
+                                <th>CNR (CINO) / Case No.</th>
+                                <th>Cause Title (Petitioner v. Respondent)</th>
+                                <th>Practice Area</th>
+                                <th>Court Complex / Establishment</th>
+                                <th>Stage / Purpose of Listing</th>
+                                <th>NDOH (Next Hearing)</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="casesTableBody">
+                            <tr>
+                                <td colspan="9" class="text-center py-4">Loading Indian court records...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- View: Case Calendar (Full Indian Court Diary & NDOH Schedule) -->
+            <section id="view-calendar" class="content-view">
+                <div class="calendar-toolbar">
+                    <div class="cal-nav-controls">
+                        <button class="btn btn-secondary btn-sm" id="calPrevMonthBtn" title="Previous Month">&larr; Prev</button>
+                        <button class="btn btn-secondary btn-sm" id="calTodayBtn">Today</button>
+                        <button class="btn btn-secondary btn-sm" id="calNextMonthBtn" title="Next Month">Next &rarr;</button>
+                        <h3 class="cal-current-month" id="calMonthYearTitle">October 2026</h3>
+                    </div>
+
+                    <div class="cal-filters-group">
+                        <select id="calFilterAdvocate">
+                            <option value="All">All Chamber Advocates</option>
+                            <option value="A. LEELA KRISHNA (BA. LLB.) Advocate" selected>A. LEELA KRISHNA (BA. LLB.) Advocate</option>
+                            <option value="Adv. S. Venkat Reddy">Adv. S. Venkat Reddy</option>
+                            <option value="Adv. P. Radhika">Adv. P. Radhika</option>
+                            <option value="Senior Adv. B. N. Rao">Senior Adv. B. N. Rao</option>
+                        </select>
+                        <select id="calFilterPriority">
+                            <option value="All">All Priorities</option>
+                            <option value="Urgent">Urgent Matters Only</option>
+                            <option value="High">High Priority</option>
+                            <option value="Regular">Regular Listings</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" onclick="app.openNewHearingModal()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>+ Schedule Hearing</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Calendar Main Grid & Selected Day Agenda Panel -->
+                <div class="calendar-layout-container">
+                    <!-- Left: Month Calendar Grid -->
+                    <div class="calendar-grid-card">
+                        <div class="calendar-weekdays-header">
+                            <div class="weekday-cell">Mon</div>
+                            <div class="weekday-cell">Tue</div>
+                            <div class="weekday-cell">Wed</div>
+                            <div class="weekday-cell">Thu</div>
+                            <div class="weekday-cell">Fri</div>
+                            <div class="weekday-cell sat-cell">Sat (Court)</div>
+                            <div class="weekday-cell sun-cell">Sun (Holiday)</div>
+                        </div>
+                        <div class="calendar-days-grid" id="calendarDaysGrid">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Right: Selected Date Agenda / Daily Cause List -->
+                    <div class="calendar-agenda-panel">
+                        <div class="agenda-header">
+                            <div class="agenda-title-wrap">
+                                <span class="agenda-sub">Court Listings for:</span>
+                                <h4 id="agendaSelectedDateTitle">12 October 2026</h4>
+                            </div>
+                            <span class="badge status-badge" id="agendaTotalListingsCount">0 Matters</span>
+                        </div>
+                        <div class="agenda-items-container" id="agendaListingsContainer">
+                            <!-- Populated dynamically -->
+                        </div>
+                        <div class="agenda-footer">
+                            <button class="btn btn-outline btn-sm full-width-btn" id="btnAddListingForSelectedDateBtn">
+                                + Schedule Listing for this Date
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- View 3: Daily Cause List -->
+            <section id="view-hearings" class="content-view">
+                <div class="view-toolbar">
+                    <div class="toolbar-title-meta">
+                        <h3>Daily Cause List & Board Appearances</h3>
+                        <p style="font-size: 12px; color: var(--text-muted);">Court Hall, Item Number, Board Stage & Coram listings</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="app.openNewHearingModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Add Listing to Cause List</span>
+                    </button>
+                </div>
+
+                <div class="hearings-grid" id="hearingsListContainer">
+                    <!-- Populated dynamically -->
+                </div>
+            </section>
+
+            <!-- View 4: Litigation Tasks -->
+            <section id="view-tasks" class="content-view">
+                <div class="view-toolbar">
+                    <div class="toolbar-title-meta">
+                        <h3>Chamber Drafting & Court Registry Filings</h3>
+                        <p style="font-size: 12px; color: var(--text-muted);">Written Statements, Plaints, Evidence Affidavits & Certified Copies</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="app.openNewTaskModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Add Filing Task</span>
+                    </button>
+                </div>
+
+                <!-- Kanban Board Columns -->
+                <div class="kanban-board">
+                    <div class="kanban-column" data-status="Pending">
+                        <div class="kanban-header">
+                            <span class="column-title">To Draft / Registry Pending</span>
+                            <span class="column-badge" id="badgePendingCount">0</span>
+                        </div>
+                        <div class="kanban-body" id="colPendingTasks"></div>
+                    </div>
+
+                    <div class="kanban-column" data-status="In Drafting">
+                        <div class="kanban-header">
+                            <span class="column-title">In Drafting / Settling</span>
+                            <span class="column-badge" id="badgeInProgressCount">0</span>
+                        </div>
+                        <div class="kanban-body" id="colInProgressTasks"></div>
+                    </div>
+
+                    <div class="kanban-column" data-status="Completed">
+                        <div class="kanban-header">
+                            <span class="column-title">Filed in Court / Disposed</span>
+                            <span class="column-badge" id="badgeCompletedCount">0</span>
+                        </div>
+                        <div class="kanban-body" id="colCompletedTasks"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- View 5: Client Roster -->
+            <section id="view-clients" class="content-view">
+                <div class="view-toolbar">
+                    <div class="toolbar-title-meta">
+                        <h3>Client Directory & Bar Council Conflict Verification</h3>
+                        <p style="font-size: 12px; color: var(--text-muted);">Compliance with Bar Council of India (BCI) Rules on professional representation</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="app.openNewClientModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Add Client</span>
+                    </button>
+                </div>
+
+                <div class="clients-grid" id="clientsListContainer">
+                    <!-- Populated dynamically -->
+                </div>
+            </section>
+
+            <!-- View 6: Time & Billing -->
+            <section id="view-billing" class="content-view">
+                <div class="view-toolbar">
+                    <div class="toolbar-title-meta">
+                        <h3>Advocate Fee Ledger & Professional Accounting</h3>
+                        <p style="font-size: 12px; color: var(--text-muted);">Appearance Fees, Drafting Fees, Clerkage (10%), Court Fees & Stamp Duty in Indian Rupees (₹)</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="app.openNewBillingModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Record Fee Voucher</span>
+                    </button>
+                </div>
+
+                <div class="billing-summary-cards">
+                    <div class="b-stat">
+                        <span class="b-label">Total Fee Entries</span>
+                        <span class="b-val" id="billingTotalHoursVal">0 vouchers</span>
+                    </div>
+                    <div class="b-stat">
+                        <span class="b-label">Total Professional Fee Billed</span>
+                        <span class="b-val text-gold" id="billingTotalAmountVal">₹0.00</span>
+                    </div>
+                    <div class="b-stat">
+                        <span class="b-label">Pending Recovery / Outstanding</span>
+                        <span class="b-val text-emerald" id="billingUnbilledVal">₹0.00</span>
+                    </div>
+                </div>
+
+                <div class="cases-table-container">
+                    <table class="data-table" id="billingTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Case / CNR</th>
+                                <th>Advocate Name</th>
+                                <th>Fee Head / Category</th>
+                                <th>Description / Particulars</th>
+                                <th>Amount (₹)</th>
+                                <th>Receipt / Voucher #</th>
+                                <th>Status</th>
+                                <th class="text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="billingTableBody">
+                            <tr>
+                                <td colspan="9" class="text-center py-4">Loading fee ledger...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Case Detail Drawer / Modal -->
+    <div id="caseDetailModal" class="modal-overlay hidden">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div class="case-badge-row">
+                        <span class="badge docket-badge" id="modalCaseNumber">OS No. 000/2021</span>
+                        <span class="badge cnr-badge" id="modalCaseCnr" title="eCourts CNR Number">TSRA000000000000</span>
+                        <span class="badge priority-badge" id="modalCasePriority">Regular</span>
+                        <span class="badge status-badge" id="modalCaseStatus">Active</span>
+                        <span class="badge practice-badge" id="modalCasePracticeArea">Civil</span>
+                    </div>
+                    <h2 id="modalCaseTitle">Cause Title</h2>
+                </div>
+                <div class="modal-header-actions">
+                    <button class="btn btn-sm btn-primary" id="btnUpdateBusinessDetail" onclick="app.openBusinessUpdateModal(app.currentCaseId)" style="background:linear-gradient(135deg, #25d366, #128c7e); border:none; color:white;" title="Update court proceedings & push WhatsApp alert to client">
+                        <span>⚡ Update Business & WhatsApp</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline" id="btnPrintCaseSummary" title="Print Court Docket & Brief">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        <span>Print Docket</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline" id="btnEditCurrentCase">Edit</button>
+                    <button class="btn-close" onclick="app.closeCaseDetailModal()">&times;</button>
+                </div>
+            </div>
+
+            <!-- Detail Sub-Tabs -->
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="summary">Coram & Parties</button>
+                <button class="modal-tab" data-tab="hearings">Cause List & Daily Orders (<span id="modalTabHearingCount">0</span>)</button>
+                <button class="modal-tab" data-tab="tasks">Filings & Registry Tasks (<span id="modalTabTaskCount">0</span>)</button>
+                <button class="modal-tab" data-tab="documents">Pleadings & Annexures (<span id="modalTabDocCount">0</span>)</button>
+                <button class="modal-tab" data-tab="billing">Fee Vouchers & Accounting</button>
+                <button class="modal-tab" data-tab="notes">Chamber Diary & Precedents (<span id="modalTabNoteCount">0</span>)</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Tab: Summary & Parties -->
+                <div id="tabContent-summary" class="tab-pane active">
+                    <!-- Latest Business of the Day Card -->
+                    <div class="detail-card full-width" id="detBusinessBox" style="margin-bottom:18px; border-left:4px solid #25d366;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:16px;">⚡</span>
+                                <h4 style="margin:0; border:none; padding:0;">Court Business of the Day & WhatsApp Status</h4>
+                            </div>
+                            <button class="btn btn-sm btn-primary" onclick="app.openBusinessUpdateModal(app.currentCaseId)" style="background:linear-gradient(135deg, #25d366, #128c7e); border:none; color:white; font-size:11.5px;">+ Update Business & Push WhatsApp</button>
+                        </div>
+                        <div id="detBusinessText" style="background:var(--bg-surface); padding:12px 14px; border-radius:var(--radius-sm); font-size:13px; line-height:1.6; color:var(--text-primary); white-space:pre-wrap;">No proceedings recorded for today yet. Click 'Update Business' to enter proceedings and alert the client.</div>
+                        <div id="detBusinessMeta" style="font-size:11px; color:var(--text-muted); margin-top:8px;">Last Business Update: Never | Client Mobile: <span id="detClientPhoneDisplay" class="font-mono">-</span></div>
+                    </div>
+
+                    <!-- Quick Actions Bar for Matter (Save / Add Options) -->
+                    <div class="matter-quick-toolbar">
+                        <div class="quick-toolbar-left">
+                            <span class="quick-toolbar-badge">⚡ Matter Actions:</span>
+                        </div>
+                        <div class="quick-toolbar-buttons">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.openEditCaseModal(app.currentCaseId)" title="Edit and save case details">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                <span>Edit Case</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="app.openNewHearingForCurrentCase()" title="Add court hearing date">
+                                <span>+ Add Hearing (NDOH)</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="app.openNewTaskForCurrentCase()" title="Add registry filing task">
+                                <span>+ Add Filing Task</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="app.openNewDocModal()" title="Add pleadings or court order">
+                                <span>+ Add Pleading / Doc</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="app.openNewBillingForCurrentCase()" title="Add appearance fee voucher">
+                                <span>+ Add Fee Voucher</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.printSelectedCaseDocket(app.currentCaseId)" title="Print official court docket for this case only">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                                <span>Print Docket</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.openNewCaseModal()" title="Add another new matter">
+                                <span>+ Add New Case</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="detail-grid">
+                        <div class="detail-card">
+                            <h4>Court, Coram & Listing Details</h4>
+                            <div class="info-row"><span class="info-label">CNR Number (CINO):</span><span class="info-val font-mono" id="detCnr">-</span></div>
+                            <div class="info-row"><span class="info-label">Establishment / Court:</span><span class="info-val" id="detCourtName">-</span></div>
+                            <div class="info-row"><span class="info-label">Presiding Bench / Judicial Officer:</span><span class="info-val" id="detJudgeName">-</span></div>
+                            <div class="info-row"><span class="info-label">Daily Cause List Item / Hall:</span><span class="info-val" id="detItemNo">-</span></div>
+                            <div class="info-row"><span class="info-label">Current Stage / Purpose:</span><span class="info-val highlight-gold" id="detStagePurpose">-</span></div>
+                            <div class="info-row"><span class="info-label">Next Date of Hearing (NDOH):</span><span class="info-val highlight-amber" id="detNdoh">-</span></div>
+                            <div class="info-row"><span class="info-label">Jurisdiction / District:</span><span class="info-val" id="detJurisdiction">-</span></div>
+                        </div>
+
+                        <div class="detail-card">
+                            <h4>Parties, Representation & Vakalatnama</h4>
+                            <div class="info-row"><span class="info-label">Petitioner / Plaintiff:</span><span class="info-val" id="detPetitioner">-</span></div>
+                            <div class="info-row"><span class="info-label">Respondent / Defendant:</span><span class="info-val" id="detRespondent">-</span></div>
+                            <div class="info-row"><span class="info-label">Chamber Advocate / Counsel:</span><span class="info-val font-semibold" id="detLeadAttorney">-</span></div>
+                            <div class="info-row"><span class="info-label">Opposite Advocate:</span><span class="info-val" id="detOpposingCounsel">-</span></div>
+                            <div class="info-row"><span class="info-label">Vakalatnama Status:</span><span class="info-val" id="detVakalatnamaStatus">-</span></div>
+                            <div class="info-row" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div><span class="info-label">Fee Due:</span><span class="info-val font-semibold" id="detFeeDue">-</span></div>
+                                <button type="button" class="btn btn-sm btn-outline" id="btnToggleFeeDue" onclick="app.toggleCaseFeeDue()" style="font-size:11px; padding:2px 8px;" title="Click to toggle Fee Due (Yes / No)">
+                                    ⚡ Toggle Yes / No
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detail-card full-width mt-3">
+                        <h4>Factual Synopsis & eCourts Record</h4>
+                        <p id="detSummary" class="text-prose">-</p>
+                    </div>
+
+                    <div class="detail-card full-width mt-3">
+                        <h4>Litigation Strategy & Cross-Examination Notes</h4>
+                        <div id="detStrategyNotes" class="strategy-box">-</div>
+                    </div>
+                </div>
+
+                <!-- Tab: Hearings -->
+                <div id="tabContent-hearings" class="tab-pane">
+                    <div class="tab-pane-header">
+                        <h4>Cause List Proceedings & Daily Order Sheets</h4>
+                        <button class="btn btn-sm btn-primary" onclick="app.openNewHearingForCurrentCase()">+ Add Date</button>
+                    </div>
+                    <div id="caseHearingsList" class="hearings-list mt-3"></div>
+                </div>
+
+                <!-- Tab: Tasks -->
+                <div id="tabContent-tasks" class="tab-pane">
+                    <div class="tab-pane-header">
+                        <h4>Chamber Deadlines & Court Registry Filings</h4>
+                        <button class="btn btn-sm btn-primary" onclick="app.openNewTaskForCurrentCase()">+ Add Filing Task</button>
+                    </div>
+                    <div id="caseTasksList" class="tasks-list mt-3"></div>
+                </div>
+
+                <!-- Tab: Documents -->
+                <div id="tabContent-documents" class="tab-pane">
+                    <div class="tab-pane-header">
+                        <h4>Pleadings, Vakalatnamas, IAs & Annexures</h4>
+                        <button class="btn btn-sm btn-primary" onclick="app.openNewDocModal()">+ Index Pleading / Annexure</button>
+                    </div>
+                    <div class="documents-table-wrap mt-3">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Pleading Title</th>
+                                    <th>Category</th>
+                                    <th>Annexure / Exhibit</th>
+                                    <th>Format</th>
+                                    <th>Tags</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="caseDocumentsList"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab: Billing -->
+                <div id="tabContent-billing" class="tab-pane">
+                    <div class="tab-pane-header">
+                        <div class="billing-header-stats">
+                            <span>Appearance Fee: <strong id="detHearingFeeDisplay" class="text-gold">₹0</strong></span>
+                            <span>Fee Received: <strong id="detRetainerBalance" class="text-emerald">₹0</strong></span>
+                        </div>
+                        <button class="btn btn-sm btn-primary" onclick="app.openNewBillingForCurrentCase()">+ Add Fee Voucher</button>
+                    </div>
+                    <div class="mt-3">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Advocate</th>
+                                    <th>Fee Head</th>
+                                    <th>Particulars</th>
+                                    <th>Amount (₹)</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="caseBillingList"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab: Notes -->
+                <div id="tabContent-notes" class="tab-pane">
+                    <div class="tab-pane-header">
+                        <h4>Chamber Diary, Daily Orders & Legal Precedents</h4>
+                    </div>
+                    <div class="add-note-box mt-3">
+                        <div class="note-inputs">
+                            <input type="text" id="newNoteAuthor" placeholder="Advocate Name" value="Chamber Advocate">
+                            <select id="newNoteCategory">
+                                <option value="Court Proceeding / Daily Order">Court Proceeding / Daily Order</option>
+                                <option value="Cross-Examination Strategy">Cross-Examination Strategy</option>
+                                <option value="Client Conference">Client Conference</option>
+                                <option value="Case Law Citation / Precedent">Case Law Citation / Precedent</option>
+                            </select>
+                            <input type="text" id="newNoteCitation" placeholder="SCC / AIR Precedent Citation (optional)">
+                        </div>
+                        <textarea id="newNoteContent" placeholder="Enter daily court observation, questions for cross-examination, or legal arguments..." rows="3"></textarea>
+                        <div class="text-right mt-2">
+                            <button class="btn btn-sm btn-primary" onclick="app.saveCaseNote()">Save Diary Entry</button>
+                        </div>
+                    </div>
+                    <div id="caseNotesList" class="notes-timeline mt-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Create / Edit Case -->
+    <div id="caseFormModal" class="modal-overlay hidden">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <h3 id="caseFormModalTitle">New Vakalat Intake & eCourts Filing</h3>
+                <button class="btn-close" onclick="app.closeModal('caseFormModal')">&times;</button>
+            </div>
+            <form id="caseForm" onsubmit="app.handleCaseFormSubmit(event)">
+                <input type="hidden" id="caseFormId">
+                <div class="modal-body form-grid">
+                    <!-- Draft Notice Banner -->
+                    <div id="caseDraftNoticeBanner" class="draft-notice-banner hidden">
+                        <div class="draft-banner-text">
+                            <span class="draft-icon">📝</span>
+                            <span>Unsaved intake draft found (<strong id="draftSavedSummary">-</strong>).</span>
+                        </div>
+                        <div class="draft-banner-actions">
+                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="app.restoreCaseDraft()">Restore Draft</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="app.discardCaseDraft()">Discard</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group col-6">
+                        <label>CNR Number (16 Digits) *</label>
+                        <input type="text" id="f_cino" required placeholder="e.g. TSRA330011622021">
+                    </div>
+                    <div class="form-group col-3">
+                        <label>Case Type *</label>
+                        <select id="f_case_type" required>
+                            <option value="OS">OS (Original Suit)</option>
+                            <option value="CC">CC (Calendar / Criminal Case)</option>
+                            <option value="STC.NI">STC.NI (Sec 138 NI Act)</option>
+                            <option value="DVC">DVC (Domestic Violence)</option>
+                            <option value="F.C.O.P">F.C.O.P (Family Court OP)</option>
+                            <option value="H.M.O.P">H.M.O.P (Hindu Marriage OP)</option>
+                            <option value="CRLMP.BAIL">CRLMP.BAIL (Bail Petition)</option>
+                            <option value="CRLA">CRLA (Criminal Appeal)</option>
+                            <option value="WP(C)">WP(C) (Civil Writ)</option>
+                            <option value="ARB.P.">ARB.P. (Arbitration Petition)</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-3">
+                        <label>Case / Registration No. *</label>
+                        <input type="text" id="f_case_number" required placeholder="e.g. OS No. 791/2021">
+                    </div>
+
+                    <div class="form-group col-6">
+                        <label>Petitioner / Plaintiff *</label>
+                        <input type="text" id="f_petitioner" required placeholder="e.g. G. Mahendernath Yadav">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Respondent / Defendant *</label>
+                        <input type="text" id="f_respondent" required placeholder="e.g. A. Kama Rajendra Trinath Prabhu">
+                    </div>
+
+                    <div class="form-group col-6">
+                        <label>Client in Chambers</label>
+                        <select id="f_client_id"></select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Practice Area *</label>
+                        <select id="f_practice_area" required>
+                            <option value="Civil Suits, Property & Injunctions">Civil Suits, Property & Injunctions</option>
+                            <option value="Criminal Law & Bail Matters">Criminal Law & Bail Matters</option>
+                            <option value="Negotiable Instruments (Sec 138 NI Act)">Negotiable Instruments (Sec 138 NI Act)</option>
+                            <option value="Matrimonial & Family Law">Matrimonial & Family Law</option>
+                            <option value="Commercial & Corporate Disputes">Commercial & Corporate Disputes</option>
+                            <option value="General Litigation Practice">General Litigation Practice</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group col-4">
+                        <label>Current Status</label>
+                        <select id="f_status">
+                            <option value="Active Matter">Active Matter</option>
+                            <option value="Draft / Intake in Progress">Draft / Intake in Progress</option>
+                            <option value="Evidence Stage">Evidence Stage</option>
+                            <option value="Pleadings & Issues">Pleadings & Issues</option>
+                            <option value="Notice & Summons Stage">Notice & Summons Stage</option>
+                            <option value="Reserved for Orders">Reserved for Orders</option>
+                            <option value="Disposed / Decreed">Disposed / Decreed</option>
+                            <option value="Dismissed">Dismissed</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Purpose of Listing (Stage)</label>
+                        <input type="text" id="f_stage_purpose" placeholder="e.g. CROSS EXAMINATION OF PET">
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Priority</label>
+                        <select id="f_priority">
+                            <option value="Urgent">Urgent (Bail / Interim Stay)</option>
+                            <option value="High">High (Evidence / Arguments)</option>
+                            <option value="Regular" selected>Regular</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group col-6">
+                        <label>Court Complex / Establishment</label>
+                        <input type="text" id="f_court_name" placeholder="e.g. Prl. Junior Civil Judges Court, Ranga Reddy">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Presiding Judicial Officer / Bench</label>
+                        <input type="text" id="f_bench_designation" placeholder="e.g. Principal Junior Civil Judge-cum-MM">
+                    </div>
+
+                    <div class="form-group col-4">
+                        <label>State & District</label>
+                        <input type="text" id="f_state_district" placeholder="Telangana, Rangareddy">
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Cause List Item No.</label>
+                        <input type="text" id="f_court_item_no" placeholder="e.g. Item 14, Court Hall 2">
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Next Hearing Date (NDOH)</label>
+                        <input type="date" id="f_date_next_list">
+                    </div>
+
+                    <div class="form-group col-6">
+                        <label>Chamber Advocate / Counsel</label>
+                        <input type="text" id="f_advocate_brief" placeholder="A. LEELA KRISHNA (BA. LLB.) Advocate" value="A. LEELA KRISHNA (BA. LLB.) Advocate">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Opposite Counsel / GP</label>
+                        <input type="text" id="f_opposite_advocate" placeholder="e.g. Adv. G. Ramakrishna">
+                    </div>
+
+                    <div class="form-group col-3">
+                        <label>Vakalatnama Status</label>
+                        <select id="f_vakalatnama_status">
+                            <option value="Vakalatnama Filed">Vakalatnama Filed</option>
+                            <option value="Memo of Appearance">Memo of Appearance</option>
+                            <option value="Caveat Filed (Sec 148A)">Caveat Filed (Sec 148A)</option>
+                            <option value="NOC Issued">NOC Issued</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-3">
+                        <label>Fee Due *</label>
+                        <select id="f_fee_due">
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-3">
+                        <label>Appearance Fee (₹)</label>
+                        <input type="number" id="f_appearance_fee" step="1000" value="15000">
+                    </div>
+                    <div class="form-group col-3">
+                        <label>Fee Received to Date (₹)</label>
+                        <input type="number" id="f_fee_received" step="1000" value="25000">
+                    </div>
+
+                    <div class="form-group col-12">
+                        <label>Factual Summary & Pleadings Overview</label>
+                        <textarea id="f_summary" rows="3" placeholder="Summary of cause of action, relief claimed, property schedule..."></textarea>
+                    </div>
+
+                    <div class="form-group col-12">
+                        <label>Chamber Strategy & Cross-Examination Notes</label>
+                        <textarea id="f_advocate_notes" rows="2" placeholder="Key admission points from PW-1, vital documents, citations..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer case-form-footer">
+                    <div class="case-form-actions-left">
+                        <button type="button" class="btn btn-secondary" onclick="app.closeModal('caseFormModal')">Cancel</button>
+                        <!-- Save Draft Option: Saves incomplete intake to resume anytime -->
+                        <button type="button" class="btn btn-outline-warning" id="btnCaseSaveDraft" onclick="app.saveCaseDraft()" title="Save partial or incomplete intake as a draft to resume later">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            <span>Save Draft</span>
+                        </button>
+                    </div>
+                    <div class="case-form-actions-right">
+                        <!-- Save Option: Saves case and opens docket / post-save review -->
+                        <button type="submit" class="btn btn-outline" id="btnCaseSaveOption" onclick="app.setCaseSubmitMode('save')" title="Save case details to chambers docket">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            <span id="btnCaseSaveLabel">Save Case</span>
+                        </button>
+
+                        <!-- Save & Next Option: Saves case and directly proceeds to Step 2: First Listing (NDOH) -->
+                        <button type="submit" class="btn btn-secondary" id="btnCaseSaveAndNext" onclick="app.setCaseSubmitMode('save_and_next')" title="Save matter and proceed directly to scheduling initial court listing">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="13 17 18 12 13 7"></polyline>
+                                <polyline points="6 17 11 12 6 7"></polyline>
+                            </svg>
+                            <span id="btnCaseSaveNextLabel">Save & Next</span>
+                        </button>
+                        
+                        <!-- Add Option: Saves this case and directly clears form to add another case -->
+                        <button type="submit" class="btn btn-primary" id="btnCaseAddOption" onclick="app.setCaseSubmitMode('add_another')" title="Save this case and immediately add another matter">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span id="btnCaseAddLabel">Save & Add Another Case</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Post-Add Case Options (Save & Add Options) -->
+    <div id="casePostAddModal" class="modal-overlay hidden">
+        <div class="modal-dialog modal-md post-add-dialog">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div class="post-add-success-pill">
+                        <span class="pulse-dot"></span>
+                        <span>Case Successfully Recorded in Chambers Docket</span>
+                    </div>
+                    <h3 id="postAddCaseTitle">Matter Added</h3>
+                </div>
+                <button class="btn-close" onclick="app.closeModal('casePostAddModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Summary of newly added case -->
+                <div class="post-add-summary-card">
+                    <div class="summary-badge-strip">
+                        <span class="badge docket-badge" id="postAddCaseNumber">OS No. 000/2026</span>
+                        <span class="badge cnr-badge font-mono" id="postAddCaseCnr">TSRA000000000000</span>
+                        <span class="badge priority-badge" id="postAddCasePriority">Regular</span>
+                        <span class="badge status-badge" id="postAddCaseStatus">Active</span>
+                    </div>
+                    <div class="post-add-parties" id="postAddParties">Petitioner v. Respondent</div>
+                    <div class="post-add-court" id="postAddCourt">Court Establishment</div>
+                </div>
+
+                <div class="post-add-prompt">
+                    Select what you would like to do next:
+                </div>
+
+                <!-- Two Distinct Action Groups: SAVE Options and ADD Options -->
+                <div class="post-add-sections">
+                    <!-- 1. SAVE & REVIEW OPTIONS -->
+                    <div class="action-section-card save-section">
+                        <div class="section-title">
+                            <span class="section-icon">💾</span>
+                            <div>
+                                <h4>Save & Review Options</h4>
+                                <p>Review full case brief or finish and return to register</p>
+                            </div>
+                        </div>
+                        <div class="section-buttons">
+                            <button type="button" class="btn btn-primary btn-block" onclick="app.postAddViewDocket()">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                <span>Save & Open Case Docket</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-block" onclick="app.postAddDoneAndReturn()">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <span>Done (View in Cases Vault)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2. ADD OPTIONS -->
+                    <div class="action-section-card add-section">
+                        <div class="section-title">
+                            <span class="section-icon">➕</span>
+                            <div>
+                                <h4>Add Options (Next Steps)</h4>
+                                <p>Add court dates, pleadings, tasks, fee vouchers, or intake next case</p>
+                            </div>
+                        </div>
+                        <div class="post-add-grid">
+                            <button type="button" class="post-add-btn" onclick="app.postAddAction('add_hearing')">
+                                <span class="btn-emoji">📅</span>
+                                <div class="btn-text">
+                                    <strong>+ Add Hearing / NDOH</strong>
+                                    <small>Schedule next listing</small>
+                                </div>
+                            </button>
+                            <button type="button" class="post-add-btn" onclick="app.postAddAction('add_task')">
+                                <span class="btn-emoji">📋</span>
+                                <div class="btn-text">
+                                    <strong>+ Add Filing Task</strong>
+                                    <small>Registry / Caveat deadline</small>
+                                </div>
+                            </button>
+                            <button type="button" class="post-add-btn" onclick="app.postAddAction('add_doc')">
+                                <span class="btn-emoji">📄</span>
+                                <div class="btn-text">
+                                    <strong>+ Add Pleading / Doc</strong>
+                                    <small>Index IA, plaint or order</small>
+                                </div>
+                            </button>
+                            <button type="button" class="post-add-btn" onclick="app.postAddAction('add_fee')">
+                                <span class="btn-emoji">💰</span>
+                                <div class="btn-text">
+                                    <strong>+ Add Fee Voucher</strong>
+                                    <small>Record appearance fee</small>
+                                </div>
+                            </button>
+                            <button type="button" class="post-add-btn highlight-card" onclick="app.postAddAction('add_another_case')">
+                                <span class="btn-emoji">⚖️</span>
+                                <div class="btn-text">
+                                    <strong>+ Add Another Case</strong>
+                                    <small>New Vakalat Intake Form</small>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: New Hearing / Cause List Item -->
+    <div id="hearingFormModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>List Matter on Cause List</h3>
+                <button class="btn-close" onclick="app.closeModal('hearingFormModal')">&times;</button>
+            </div>
+            <form id="hearingForm" onsubmit="app.handleHearingSubmit(event)">
+                <div class="modal-body form-grid">
+                    <div class="form-group col-12">
+                        <label>Select Case *</label>
+                        <select id="h_case_id" required></select>
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Listing Event / Board Entry *</label>
+                        <input type="text" id="h_title" required placeholder="e.g. Cross-Examination of PW-1 / Arguments on IA">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Hearing Stage</label>
+                        <select id="h_hearing_type">
+                            <option value="Cross-Examination / Evidence">Cross-Examination / Evidence</option>
+                            <option value="Final Arguments">Final Arguments</option>
+                            <option value="Hearing on Board">Hearing on Board</option>
+                            <option value="Framing of Issues">Framing of Issues</option>
+                            <option value="Written Statement Filing">Written Statement Filing</option>
+                            <option value="Notice / Summons Returnable">Notice / Summons Returnable</option>
+                            <option value="Bail Hearing">Bail Hearing</option>
+                            <option value="Pronouncement of Orders">Pronouncement of Orders</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Date of Hearing (NDOH) *</label>
+                        <input type="date" id="h_hearing_date" required>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Court Hall / Room</label>
+                        <input type="text" id="h_courtroom" placeholder="e.g. Court Hall 2">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Item No. on Cause List</label>
+                        <input type="text" id="h_item_no" placeholder="e.g. Item No. 14">
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Hon'ble Presiding Judge / Coram</label>
+                        <input type="text" id="h_bench" placeholder="e.g. Principal Senior Civil Judge, Ranga Reddy">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Attending Advocate</label>
+                        <input type="text" id="h_attorney" placeholder="A. LEELA KRISHNA (BA. LLB.) Advocate" value="A. LEELA KRISHNA (BA. LLB.) Advocate">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Chamber Preparation Note</label>
+                        <input type="text" id="h_notes" placeholder="e.g. Carry certified documents & original deeds">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('hearingFormModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add to Cause List</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: New Task -->
+    <div id="taskFormModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>Add Registry Filing & Drafting Task</h3>
+                <button class="btn-close" onclick="app.closeModal('taskFormModal')">&times;</button>
+            </div>
+            <form id="taskForm" onsubmit="app.handleTaskSubmit(event)">
+                <div class="modal-body form-grid">
+                    <div class="form-group col-12">
+                        <label>Associated Matter</label>
+                        <select id="t_case_id"></select>
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Task Title / Filing Item *</label>
+                        <input type="text" id="t_title" required placeholder="e.g. Draft Written Statement & Counter in IA 1/2026">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Assigned Junior Advocate / Clerk</label>
+                        <input type="text" id="t_assigned_to" placeholder="e.g. Adv. P. Radhika">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Filing Due Date</label>
+                        <input type="date" id="t_due_date">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Priority</label>
+                        <select id="t_priority">
+                            <option value="Urgent">Urgent</option>
+                            <option value="High">High</option>
+                            <option value="Regular" selected>Regular</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Status</label>
+                        <select id="t_status">
+                            <option value="Pending">Pending</option>
+                            <option value="In Drafting">In Drafting</option>
+                            <option value="Completed">Completed / Filed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('taskFormModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: New Client -->
+    <div id="clientFormModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>Add Client & BCI Conflict Check</h3>
+                <button class="btn-close" onclick="app.closeModal('clientFormModal')">&times;</button>
+            </div>
+            <form id="clientForm" onsubmit="app.handleClientSubmit(event)">
+                <div class="modal-body form-grid">
+                    <div class="form-group col-12">
+                        <label>Client Name / Entity *</label>
+                        <input type="text" id="cl_name" required placeholder="e.g. M. Sridhar Reddy">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Client Category</label>
+                        <select id="cl_client_type">
+                            <option value="Individual">Individual Litigant</option>
+                            <option value="Corporate">Company / Corporate Entity</option>
+                            <option value="Partnership">Firm / Partnership</option>
+                            <option value="Trust / Society">Trust / Society</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>BCI Conflict Clearance</label>
+                        <select id="cl_conflict_check">
+                            <option value="1">Cleared under BCI Rules (No Conflict)</option>
+                            <option value="0">Under Verification</option>
+                            <option value="2">Potential Conflict Flag</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Email Address</label>
+                        <input type="email" id="cl_email" placeholder="client@gmail.com">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Phone / Mobile (+91)</label>
+                        <input type="text" id="cl_phone" placeholder="+91 98490 00000">
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Address</label>
+                        <input type="text" id="cl_address" placeholder="Door No, Street, City, State, PIN">
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Chamber Intake Notes</label>
+                        <textarea id="cl_notes" rows="2" placeholder="Referral notes, vakalatnama execution, power of attorney..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('clientFormModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Register Client</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: New Fee Entry -->
+    <div id="billingFormModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>Record Advocate Fee Voucher (₹ INR)</h3>
+                <button class="btn-close" onclick="app.closeModal('billingFormModal')">&times;</button>
+            </div>
+            <form id="billingForm" onsubmit="app.handleBillingSubmit(event)">
+                <div class="modal-body form-grid">
+                    <div class="form-group col-12">
+                        <label>Select Case *</label>
+                        <select id="b_case_id" required></select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Date *</label>
+                        <input type="date" id="b_date" required>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Advocate / Counsel *</label>
+                        <input type="text" id="b_attorney" required placeholder="A. LEELA KRISHNA (BA. LLB.) Advocate" value="A. LEELA KRISHNA (BA. LLB.) Advocate">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Amount (₹ INR) *</label>
+                        <input type="number" id="b_amount" step="500" value="15000" required>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Fee Head / Category</label>
+                        <select id="b_activity_type">
+                            <option value="Senior Counsel Appearance Fee">Senior Counsel Appearance Fee</option>
+                            <option value="Drafting & Settling Plaint/WS">Drafting & Settling Plaint / WS</option>
+                            <option value="Conferencing & Briefing Fee">Conferencing & Briefing Fee</option>
+                            <option value="Clerkage (10%)">Clerkage (10%)</option>
+                            <option value="Court Fees & Stamp Duty">Court Fees & Stamp Duty</option>
+                            <option value="Process Fee & Registry Misc.">Process Fee & Registry Misc.</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Payment Status</label>
+                        <select id="b_status">
+                            <option value="Pending">Pending</option>
+                            <option value="Received">Received</option>
+                            <option value="Settled">Settled</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Voucher / Receipt #</label>
+                        <input type="text" id="b_receipt_no" placeholder="RCP-2026-001">
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Fee Description / Particulars *</label>
+                        <textarea id="b_description" rows="2" required placeholder="Details of appearance or drafting for ledger..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('billingFormModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Fee Voucher</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Index Document -->
+    <div id="docFormModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>Index Pleading or Court Document</h3>
+                <button class="btn-close" onclick="app.closeModal('docFormModal')">&times;</button>
+            </div>
+            <form id="docForm" onsubmit="app.handleDocSubmit(event)">
+                <div class="modal-body form-grid">
+                    <div class="form-group col-12">
+                        <label>Select Case *</label>
+                        <select id="doc_case_id" required></select>
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Pleading / Document Title *</label>
+                        <input type="text" id="doc_title" required placeholder="e.g. Written Statement on behalf of Defendant No. 1">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Pleading Category</label>
+                        <select id="doc_category">
+                            <option value="Plaint">Plaint</option>
+                            <option value="Written Statement (WS)">Written Statement (WS)</option>
+                            <option value="Vakalatnama">Vakalatnama</option>
+                            <option value="Interlocutory Application (IA)">Interlocutory Application (IA)</option>
+                            <option value="Counter Affidavit">Counter Affidavit</option>
+                            <option value="Rejoinder">Rejoinder</option>
+                            <option value="Evidence Affidavit (PW/DW)">Evidence Affidavit (PW/DW)</option>
+                            <option value="Certified Order Sheet">Certified Order Sheet</option>
+                            <option value="Caveat (Sec 148A CPC)">Caveat (Sec 148A CPC)</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Annexure / Exhibit Number</label>
+                        <input type="text" id="doc_bates_number" placeholder="e.g. Annexure P-1 / Ex. PW-1/A">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>File Format</label>
+                        <select id="doc_file_type">
+                            <option value="PDF">PDF</option>
+                            <option value="DOCX">DOCX</option>
+                            <option value="SCAN">Certified Scan</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>File Size</label>
+                        <input type="text" id="doc_file_size" value="1.5 MB">
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Tags</label>
+                        <input type="text" id="doc_tags" placeholder="e.g. certified copy, order sheet, injunction, summons">
+                    </div>
+                    <div class="form-group col-12">
+                        <label>Summary / Particulars</label>
+                        <textarea id="doc_summary" rows="2" placeholder="Brief note on document contents and relevance..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('docFormModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Index Document</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Client Portal Login by Mobile Number -->
+    <!-- Modal: Client Portal Login with OTP Validation (WhatsApp or SMS) -->
+    <div id="clientLoginModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <h3>🇮🇳 Client Case Access Portal</h3>
+                    <span style="font-size:12px; color:var(--text-muted);" id="clientLoginModalSubtitle">Verify identity via secure OTP on registered Indian mobile number</span>
+                </div>
+                <button class="btn-close" onclick="app.closeModal('clientLoginModal')">&times;</button>
+            </div>
+
+            <!-- Step 1: Mobile Number & Channel Selection -->
+            <form id="clientLoginStep1" onsubmit="app.handleRequestOtp(event)">
+                <div class="modal-body form-grid">
+                    <div class="form-group col-12">
+                        <label>Registered Mobile Number (+91) *</label>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" value="+91" disabled style="width:60px; text-align:center; font-weight:700;">
+                            <input type="tel" id="clientLoginPhone" required placeholder="98490 21455" style="flex:1; font-size:16px; font-weight:600; letter-spacing:1px;">
+                        </div>
+                    </div>
+
+                    <!-- Channel: WhatsApp or SMS -->
+                    <div class="form-group col-12">
+                        <label>Issue OTP via Channel *</label>
+                        <div class="otp-channel-selector">
+                            <label class="otp-channel-card selected" id="channelCardWhatsApp" onclick="app.selectOtpChannel('WhatsApp')">
+                                <input type="radio" name="otpDeliveryChannel" value="WhatsApp" checked style="accent-color:#25d366;">
+                                <div class="otp-channel-icon">🟢</div>
+                                <div class="otp-channel-info">
+                                    <strong>WhatsApp Alert</strong>
+                                    <span>Instant OTP via WhatsApp</span>
+                                </div>
+                            </label>
+                            <label class="otp-channel-card" id="channelCardSMS" onclick="app.selectOtpChannel('SMS')">
+                                <input type="radio" name="otpDeliveryChannel" value="SMS" style="accent-color:#38bdf8;">
+                                <div class="otp-channel-icon">💬</div>
+                                <div class="otp-channel-info">
+                                    <strong>Mobile SMS</strong>
+                                    <span>Standard telecom DLT SMS</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group col-12">
+                        <label style="font-size:11px; color:var(--text-muted);">Quick-Select Registered Chamber Clients (Demo Test):</label>
+                        <div class="client-quick-pills">
+                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9849021455')">M. Sridhar Reddy (98490 21455)</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9440188921')">G. Mahendernath Yadav (94401 88921)</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9885233100')">AKRT Prabhu (98852 33100)</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9177044211')">Smt. Savitha (91770 44211)</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="app.fillLoginPhone('9848012345')">Dolphin Hotels (98480 12345)</button>
+                        </div>
+                    </div>
+
+                    <div class="col-12" id="clientLoginError" style="display:none; color:var(--accent-rose); font-size:12.5px; background:rgba(244,63,94,0.1); padding:10px; border-radius:var(--radius-md); border:1px solid rgba(244,63,94,0.3);">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('clientLoginModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btnRequestOtpSubmit" style="background:linear-gradient(135deg, #25d366, #128c7e); border:none; color:white;">
+                        <span id="btnRequestOtpIcon">📲</span>
+                        <span id="btnRequestOtpText">Send Verification OTP &rarr;</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Step 2: Enter & Verify OTP -->
+            <form id="clientLoginStep2" class="hidden" onsubmit="app.handleVerifyOtp(event)">
+                <div class="modal-body form-grid">
+                    <div class="col-12">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span style="font-size:13px; color:var(--text-secondary);">
+                                OTP dispatched to: <strong id="step2TargetPhone" class="font-mono text-gold">+91 -</strong>
+                            </span>
+                            <span class="badge" id="step2TargetBadge" style="background:#128c7e; color:white; font-size:11px;">WhatsApp</span>
+                        </div>
+                    </div>
+
+                    <!-- Demo OTP Banner with 1-click Auto-Fill -->
+                    <div class="col-12">
+                        <div class="demo-otp-preview-box">
+                            <div>
+                                <span style="font-size:11.5px; color:var(--text-secondary); display:block;">Dispatched Chamber Verification OTP:</span>
+                                <strong id="demoOtpVal" class="font-mono text-emerald" style="font-size:18px; letter-spacing:2px;">------</strong>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="btn btn-sm btn-outline" onclick="app.autoFillOtp()" style="border-color:#25d366; color:#25d366; font-size:11px;">
+                                    ⚡ Auto-Fill OTP
+                                </button>
+                                <a href="#" target="_blank" id="step2WaLink" class="btn btn-sm btn-success hidden" style="font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                                    💬 Open in WhatsApp
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group col-12" style="text-align:center;">
+                        <label style="font-size:13px; font-weight:600;">Enter 6-Digit Verification Code *</label>
+                        <div class="otp-input-wrap">
+                            <input type="text" id="clientLoginOtp" maxlength="6" required placeholder="••••••" class="otp-input-field" autocomplete="one-time-code">
+                            <div style="font-size:12px; color:var(--text-muted);">
+                                ⏱️ Valid for 5 minutes (<span id="otpCountdown">05:00</span>)
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12" style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:6px 0;">
+                        <button type="button" class="btn-text-link" onclick="app.backToStep1()">
+                            &larr; Change Mobile Number
+                        </button>
+                        <div style="display:flex; gap:10px;">
+                            <button type="button" class="btn-text-link" onclick="app.resendOtp('WhatsApp')">Resend via WhatsApp</button>
+                            <span style="color:var(--border-color);">|</span>
+                            <button type="button" class="btn-text-link" onclick="app.resendOtp('SMS')">Resend via SMS</button>
+                        </div>
+                    </div>
+
+                    <div class="col-12" id="clientOtpError" style="display:none; color:var(--accent-rose); font-size:12.5px; background:rgba(244,63,94,0.1); padding:10px; border-radius:var(--radius-md); border:1px solid rgba(244,63,94,0.3);">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('clientLoginModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg, #d4af37, #b8860b); color:#0a0f1d; font-weight:700;">
+                        <span>Verify OTP & Access My Cases &rarr;</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Update Business of the Day & WhatsApp Push -->
+    <div id="businessUpdateModal" class="modal-overlay hidden">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:18px;">⚡</span>
+                        <h3>Update Business of the Day & WhatsApp Push</h3>
+                    </div>
+                    <span style="font-size:12px; color:var(--primary);" id="buCaseNumberTitle">OS No. 791/2021 | AKRT Prabhu v. A. Yadaiah</span>
+                </div>
+                <button class="btn-close" onclick="app.closeModal('businessUpdateModal')">&times;</button>
+            </div>
+            <form id="businessUpdateForm" onsubmit="app.handleBusinessUpdateSubmit(event)">
+                <input type="hidden" id="buCaseId">
+                <div class="modal-body form-grid">
+                    <div class="form-group col-12">
+                        <label>Business of the Day (Court Proceeding / Order Sheet Entry) *</label>
+                        <textarea id="buBusinessText" rows="3" required placeholder="e.g. Today PW-1 was cross-examined in full. Court directed respondent to file counter affidavit. Ad-interim stay extended till next date of hearing." oninput="app.updateWhatsAppLivePreview()"></textarea>
+                    </div>
+
+                    <div class="form-group col-4">
+                        <label>Next Date of Hearing (NDOH) *</label>
+                        <input type="date" id="buNdoh" required onchange="app.updateWhatsAppLivePreview()">
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Next Stage / Purpose of Listing *</label>
+                        <input type="text" id="buStagePurpose" required placeholder="e.g. DEFENDANT EVIDENCE (DW-1)" oninput="app.updateWhatsAppLivePreview()">
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Court Hall & Item Number</label>
+                        <input type="text" id="buCourtItemNo" placeholder="e.g. Item No. 14, Court Hall 2">
+                    </div>
+
+                    <div class="form-group col-12">
+                        <div class="whatsapp-push-toggle-box">
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                <input type="checkbox" id="buSendWhatsapp" checked style="width:18px; height:18px; accent-color:#25d366;">
+                                <div>
+                                    <strong style="color:var(--text-primary); font-size:13.5px;">Push instant WhatsApp update to Client</strong>
+                                    <div style="font-size:11.5px; color:var(--text-muted);" id="buClientPhoneLabel">Client: G. Mahendernath Yadav (+91 94401 88921)</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Live WhatsApp Message Preview Bubble -->
+                    <div class="form-group col-12">
+                        <label style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:700;">Live WhatsApp Message Preview:</label>
+                        <div class="whatsapp-preview-bubble" id="whatsappLivePreviewBox">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('businessUpdateModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg, #25d366, #128c7e); border:none; color:white;">
+                        <span style="font-size:15px;">📲</span>
+                        <span>Save Business & Push WhatsApp Notification</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: WhatsApp Dispatch Success Confirmation -->
+    <div id="whatsappResultModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+            <div class="modal-header" style="background:rgba(37, 211, 102, 0.15); border-bottom-color:rgba(37, 211, 102, 0.3);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:22px;">✅</span>
+                    <div>
+                        <h3 style="color:#25d366;">WhatsApp Alert Dispatched!</h3>
+                        <span style="font-size:11.5px; color:var(--text-muted);">Pushed to client registered mobile number</span>
+                    </div>
+                </div>
+                <button class="btn-close" onclick="app.closeModal('whatsappResultModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="info-row"><span class="info-label">Recipient Client:</span><span class="info-val font-semibold" id="waResClientName">-</span></div>
+                <div class="info-row"><span class="info-label">Mobile Number:</span><span class="info-val font-mono" id="waResPhone">-</span></div>
+                <div class="info-row"><span class="info-label">Delivery Status:</span><span class="info-val highlight-emerald">Dispatched to WhatsApp Network</span></div>
+                
+                <div style="margin-top:14px; font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Message Delivered:</div>
+                <div class="whatsapp-preview-bubble mt-2" id="waResMessageText" style="white-space:pre-wrap; font-size:12px;"></div>
+            </div>
+            <div class="modal-footer" style="justify-content:space-between;">
+                <a href="#" target="_blank" id="waResDirectLink" class="btn btn-success" style="background:#25d366; color:white; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+                    <span style="font-size:15px;">💬</span>
+                    <span>Open in WhatsApp Web / App</span>
+                </a>
+                <button type="button" class="btn btn-secondary" onclick="app.closeModal('whatsappResultModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dedicated Container for Printing Selected Court Docket Only -->
+    <div id="printableCourtDocket" class="printable-docket"></div>
+
+    <!-- Script -->
+    <script src="app.js"></script>
+</body>
+</html>

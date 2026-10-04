@@ -1,0 +1,21 @@
+{
+  "name": "clawssroom",
+  "version": "1.0.0",
+  "description": "cLAWssroom - Advocate's Chambers & Indian Court Management Portal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "keywords": [
+    "indian-law",
+    "court-management",
+    "advocate-portal",
+    "ecourts",
+    "legal-tech"
+  ],
+  "author": "",
+  "license": "ISC"
+}
