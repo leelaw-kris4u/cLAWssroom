@@ -69,6 +69,8 @@ function parseJsonBody(req) {
                 reject(err);
             }
         });
+        req.on('error', reject);
+    });
 }
 
 function getOrCreateClientByPhone(db, digits, inputPhone, requestedName) {
