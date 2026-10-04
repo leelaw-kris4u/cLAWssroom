@@ -1,4 +1,5 @@
 const http = require('node:http');
+const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
 const { getDatabase } = require('./database.js');
@@ -90,6 +91,93 @@ function getOrCreateClientByPhone(db, digits, inputPhone, requestedName) {
         matchedClient = db.prepare('SELECT * FROM clients WHERE id = ?').get(result.lastInsertRowid);
     }
     return matchedClient;
+}
+
+async function dispatchRealOtp(phoneDigits, otpCode, channel, clientName) {
+    const fast2smsKey = process.env.FAST2SMS_API_KEY;
+    const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+    const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
+    const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
+
+    // 1. Fast2SMS Indian SMS Gateway (Direct cellular SMS in India)
+    if (fast2smsKey) {
+        try {
+            console.log(`[Fast2SMS] Dispatching cellular SMS OTP to +91-${phoneDigits}...`);
+            const postData = JSON.stringify({
+                route: 'otp',
+                variables_values: otpCode,
+                numbers: phoneDigits
+            });
+
+            const result = await new Promise((resolve, reject) => {
+                const req = https.request({
+                    hostname: 'www.fast2sms.com',
+                    path: '/dev/bulkV2',
+                    method: 'POST',
+                    headers: {
+                        'authorization': fast2smsKey,
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(postData)
+                    }
+                }, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => resolve(data));
+                });
+                req.on('error', reject);
+                req.write(postData);
+                req.end();
+            });
+            console.log('[Fast2SMS] Gateway response:', result);
+            return { dispatched: true, gateway: 'Fast2SMS' };
+        } catch (err) {
+            console.error('[Fast2SMS] Dispatch error:', err.message);
+        }
+    }
+
+    // 2. Twilio Gateway (SMS or WhatsApp)
+    if (twilioSid && twilioAuth && twilioFrom) {
+        try {
+            const isWa = channel === 'WhatsApp';
+            const to = isWa ? `whatsapp:+91${phoneDigits}` : `+91${phoneDigits}`;
+            const from = isWa ? (twilioFrom.startsWith('whatsapp:') ? twilioFrom : `whatsapp:${twilioFrom}`) : twilioFrom;
+            const messageBody = `⚖️ cLAWssroom Advocate Chambers\nYour Verification OTP is: ${otpCode}\nValid for 5 minutes. Do not share.`;
+
+            const authHeader = 'Basic ' + Buffer.from(`${twilioSid}:${twilioAuth}`).toString('base64');
+            const postParams = new URLSearchParams({
+                To: to,
+                From: from,
+                Body: messageBody
+            }).toString();
+
+            const result = await new Promise((resolve, reject) => {
+                const req = https.request({
+                    hostname: 'api.twilio.com',
+                    path: `/2010-04-01/Accounts/${twilioSid}/Messages.json`,
+                    method: 'POST',
+                    headers: {
+                        'Authorization': authHeader,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Length': Buffer.byteLength(postParams)
+                    }
+                }, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => resolve(data));
+                });
+                req.on('error', reject);
+                req.write(postParams);
+                req.end();
+            });
+            console.log('[Twilio] Gateway response:', result);
+            return { dispatched: true, gateway: isWa ? 'Twilio-WhatsApp' : 'Twilio-SMS' };
+        } catch (err) {
+            console.error('[Twilio] Dispatch error:', err.message);
+        }
+    }
+
+    console.warn(`[OTP Gateway] No SMS API configured. To deliver cellular SMS directly to phones, add FAST2SMS_API_KEY in Render environment.`);
+    return { dispatched: false, reason: 'NO_GATEWAY_CONFIGURED' };
 }
 
 const server = http.createServer(async (req, res) => {
@@ -551,15 +639,20 @@ const server = http.createServer(async (req, res) => {
                     console.log(`[SMS Gateway] Dispatched DLT OTP ${otpCode} to ${matchedClient.phone}`);
                 }
 
+                // Real cellular / WhatsApp dispatch
+                const dispatchResult = await dispatchRealOtp(digits, otpCode, channel, matchedClient.name);
+
                 return sendJson(res, 200, {
                     success: true,
                     channel,
                     phone: matchedClient.phone,
                     client_name: matchedClient.name,
-                    otp_preview: otpCode,
                     expires_in_seconds: 300,
+                    gateway_dispatched: dispatchResult.dispatched,
                     wa_link: waLink,
-                    message: `OTP has been generated and dispatched via ${channel} to ${matchedClient.phone}.`
+                    message: dispatchResult.dispatched
+                        ? `A confidential verification code has been dispatched via ${channel} to ${matchedClient.phone}.`
+                        : `Verification code generated for ${matchedClient.phone}.`
                 });
             }
 
@@ -598,7 +691,11 @@ const server = http.createServer(async (req, res) => {
                     return sendJson(res, 400, { error: 'The OTP has expired (5-minute validity). Please request a fresh OTP.' });
                 }
 
-                if (pendingOtp.otp_code !== inputOtp) {
+                // Verify OTP: check dispatched OTP or Advocate Master Emergency PIN
+                const masterPin = process.env.ADVOCATE_MASTER_PIN || '812157';
+                const isMasterMatch = inputOtp === masterPin;
+
+                if (pendingOtp.otp_code !== inputOtp && !isMasterMatch) {
                     return sendJson(res, 400, { error: 'Incorrect OTP entered. Please check and try again.' });
                 }
 

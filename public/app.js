@@ -2273,8 +2273,8 @@ class IndianLegalPortalApp {
                 return;
             }
 
-            // Save OTP state
-            this.activeOtp = data.otp_preview;
+            // Save target phone
+            this.activeOtp = null;
             this.activePhone = rawPhone;
 
             // Transition to Step 2
@@ -2287,18 +2287,6 @@ class IndianLegalPortalApp {
             if (badge) {
                 badge.textContent = `Via ${data.channel}`;
                 badge.style.background = data.channel === 'WhatsApp' ? '#128c7e' : '#0284c7';
-            }
-
-            document.getElementById('demoOtpVal').textContent = data.otp_preview;
-
-            const waLinkBtn = document.getElementById('step2WaLink');
-            if (waLinkBtn) {
-                if (data.channel === 'WhatsApp' && data.wa_link) {
-                    waLinkBtn.href = data.wa_link;
-                    waLinkBtn.classList.remove('hidden');
-                } else {
-                    waLinkBtn.classList.add('hidden');
-                }
             }
 
             const otpInput = document.getElementById('clientLoginOtp');
