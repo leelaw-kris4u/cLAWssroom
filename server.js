@@ -74,6 +74,21 @@ function parseJsonBody(req) {
     });
 }
 
+function getAuthUser(req, query, db) {
+    const rawId = req.headers['x-user-id'] || (query && query.user_id);
+    if (!rawId) return null;
+    const uid = Number(rawId);
+    if (!uid || isNaN(uid)) return null;
+    return db.prepare('SELECT * FROM clients WHERE id = ?').get(uid) || null;
+}
+
+function isChamberAdmin(user) {
+    if (!user) return false;
+    const adminPhones = (process.env.ADMIN_PHONES || '8121578785,9493489498').split(',').map(p => p.trim().slice(-10));
+    const userDigits = (user.phone || '').replace(/\D/g, '').slice(-10);
+    return user.role === 'admin' || adminPhones.includes(userDigits);
+}
+
 function getOrCreateClientByPhone(db, digits, inputPhone, requestedName) {
     const clients = db.prepare('SELECT * FROM clients').all();
     let matchedClient = clients.find(cl => {
@@ -81,14 +96,21 @@ function getOrCreateClientByPhone(db, digits, inputPhone, requestedName) {
         return clDigits === digits;
     });
 
+    const adminPhones = (process.env.ADMIN_PHONES || '8121578785,9493489498').split(',').map(p => p.trim().slice(-10));
+    const isAdm = adminPhones.includes(digits);
+    const assignedRole = isAdm ? 'admin' : 'client';
+
     if (!matchedClient) {
         const formattedPhone = `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
-        const clientName = (requestedName && requestedName.trim()) || `Client (+91 ${digits.slice(0, 5)} ${digits.slice(5)})`;
+        const clientName = (requestedName && requestedName.trim()) || (isAdm ? 'Advocate A. Leela Krishna' : `Client (+91 ${digits.slice(0, 5)} ${digits.slice(5)})`);
         const result = db.prepare(`
-            INSERT INTO clients (name, phone, client_type, bci_conflict_check)
-            VALUES (?, ?, 'Individual', 1)
-        `).run(clientName, formattedPhone);
+            INSERT INTO clients (name, phone, client_type, role, bci_conflict_check)
+            VALUES (?, ?, 'Individual', ?, 1)
+        `).run(clientName, formattedPhone, assignedRole);
         matchedClient = db.prepare('SELECT * FROM clients WHERE id = ?').get(result.lastInsertRowid);
+    } else if (isAdm && matchedClient.role !== 'admin') {
+        db.prepare("UPDATE clients SET role = 'admin' WHERE id = ?").run(matchedClient.id);
+        matchedClient.role = 'admin';
     }
     return matchedClient;
 }
@@ -186,7 +208,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(204, {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
+            'Access-Control-Allow-Headers': 'Content-Type, x-user-id'
         });
         res.end();
         return;
@@ -199,53 +221,141 @@ const server = http.createServer(async (req, res) => {
     // API Routes
     if (pathname.startsWith('/api/')) {
         try {
-            // Stats
-            if (pathname === '/api/stats' && req.method === 'GET') {
-                const totalCases = db.prepare('SELECT COUNT(*) as c FROM cases').get().c;
-                const activeCases = db.prepare("SELECT COUNT(*) as c FROM cases WHERE status NOT IN ('Disposed', 'Disposed / Decreed', 'Dismissed', 'Transferred')").get().c;
-                const urgentCases = db.prepare("SELECT COUNT(*) as c FROM cases WHERE priority = 'Urgent'").get().c;
-                const upcomingHearings = db.prepare("SELECT COUNT(*) as c FROM hearings WHERE hearing_date >= DATE('now')").get().c;
-                const pendingTasks = db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status != 'Completed'").get().c;
-                const totalClients = db.prepare('SELECT COUNT(*) as c FROM clients').get().c;
-                
-                const billingTotals = db.prepare(`
-                    SELECT 
-                        COALESCE(SUM(amount), 0) as total_billed,
-                        COALESCE(SUM(CASE WHEN payment_status = 'Pending' THEN amount ELSE 0 END), 0) as pending_recovery
-                    FROM fee_ledger
-                `).get();
-
-                const practiceAreas = db.prepare(`
-                    SELECT practice_area, COUNT(*) as count 
-                    FROM cases 
-                    GROUP BY practice_area 
-                    ORDER BY count DESC
-                `).all();
-
-                const caseTypes = db.prepare(`
-                    SELECT case_type, COUNT(*) as count 
-                    FROM cases 
-                    GROUP BY case_type 
-                    ORDER BY count DESC 
-                    LIMIT 8
-                `).all();
-
+            // Auth: Current Session User Details
+            if (pathname === '/api/auth/me' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) {
+                    return sendJson(res, 401, { authenticated: false, error: 'Not authenticated', user: null, is_admin: false });
+                }
+                const isAdm = isChamberAdmin(authUser);
                 return sendJson(res, 200, {
-                    totalCases,
-                    activeCases,
-                    urgentCases,
-                    upcomingHearings,
-                    pendingTasks,
-                    totalClients,
-                    totalBilled: billingTotals.total_billed,
-                    pendingRecovery: billingTotals.pending_recovery,
-                    practiceAreas,
-                    caseTypes
+                    authenticated: true,
+                    user: authUser,
+                    is_admin: isAdm,
+                    role: authUser.role || (isAdm ? 'admin' : 'client')
                 });
             }
 
-            // Cases list & create
+            // Stats (Chamber-wide for Admin, Personally Scoped for Logged-In Clients)
+            if (pathname === '/api/stats' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) {
+                    return sendJson(res, 200, {
+                        totalCases: 0,
+                        activeCases: 0,
+                        urgentCases: 0,
+                        upcomingHearings: 0,
+                        pendingTasks: 0,
+                        totalClients: 0,
+                        totalBilled: 0,
+                        pendingRecovery: 0,
+                        practiceAreas: [],
+                        caseTypes: []
+                    });
+                }
+
+                const isAdmin = isChamberAdmin(authUser);
+
+                if (isAdmin) {
+                    const totalCases = db.prepare('SELECT COUNT(*) as c FROM cases').get().c;
+                    const activeCases = db.prepare("SELECT COUNT(*) as c FROM cases WHERE status NOT IN ('Disposed', 'Disposed / Decreed', 'Dismissed', 'Transferred')").get().c;
+                    const urgentCases = db.prepare("SELECT COUNT(*) as c FROM cases WHERE priority = 'Urgent'").get().c;
+                    const upcomingHearings = db.prepare("SELECT COUNT(*) as c FROM hearings WHERE hearing_date >= DATE('now')").get().c;
+                    const pendingTasks = db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status != 'Completed'").get().c;
+                    const totalClients = db.prepare('SELECT COUNT(*) as c FROM clients').get().c;
+                    
+                    const billingTotals = db.prepare(`
+                        SELECT 
+                            COALESCE(SUM(amount), 0) as total_billed,
+                            COALESCE(SUM(CASE WHEN payment_status = 'Pending' THEN amount ELSE 0 END), 0) as pending_recovery
+                        FROM fee_ledger
+                    `).get();
+
+                    const practiceAreas = db.prepare(`
+                        SELECT practice_area, COUNT(*) as count 
+                        FROM cases 
+                        GROUP BY practice_area 
+                        ORDER BY count DESC
+                    `).all();
+
+                    const caseTypes = db.prepare(`
+                        SELECT case_type, COUNT(*) as count 
+                        FROM cases 
+                        GROUP BY case_type 
+                        ORDER BY count DESC 
+                        LIMIT 8
+                    `).all();
+
+                    return sendJson(res, 200, {
+                        totalCases,
+                        activeCases,
+                        urgentCases,
+                        upcomingHearings,
+                        pendingTasks,
+                        totalClients,
+                        totalBilled: billingTotals.total_billed,
+                        pendingRecovery: billingTotals.pending_recovery,
+                        practiceAreas,
+                        caseTypes
+                    });
+                } else {
+                    const totalCases = db.prepare('SELECT COUNT(*) as c FROM cases WHERE owner_id = ? OR client_id = ?').get(authUser.id, authUser.id).c;
+                    const activeCases = db.prepare("SELECT COUNT(*) as c FROM cases WHERE (owner_id = ? OR client_id = ?) AND status NOT IN ('Disposed', 'Disposed / Decreed', 'Dismissed', 'Transferred')").get(authUser.id, authUser.id).c;
+                    const urgentCases = db.prepare("SELECT COUNT(*) as c FROM cases WHERE (owner_id = ? OR client_id = ?) AND priority = 'Urgent'").get(authUser.id, authUser.id).c;
+                    const upcomingHearings = db.prepare("SELECT COUNT(*) as c FROM hearings h JOIN cases c ON h.case_id = c.id WHERE (c.owner_id = ? OR c.client_id = ?) AND h.hearing_date >= DATE('now')").get(authUser.id, authUser.id).c;
+                    const pendingTasks = db.prepare("SELECT COUNT(*) as c FROM tasks t JOIN cases c ON t.case_id = c.id WHERE (c.owner_id = ? OR c.client_id = ?) AND t.status != 'Completed'").get(authUser.id, authUser.id).c;
+                    const totalClients = 1;
+                    
+                    const billingTotals = db.prepare(`
+                        SELECT 
+                            COALESCE(SUM(f.amount), 0) as total_billed,
+                            COALESCE(SUM(CASE WHEN f.payment_status = 'Pending' THEN f.amount ELSE 0 END), 0) as pending_recovery
+                        FROM fee_ledger f
+                        JOIN cases c ON f.case_id = c.id
+                        WHERE c.owner_id = ? OR c.client_id = ?
+                    `).get(authUser.id, authUser.id);
+
+                    const practiceAreas = db.prepare(`
+                        SELECT c.practice_area, COUNT(*) as count 
+                        FROM cases c 
+                        WHERE c.owner_id = ? OR c.client_id = ?
+                        GROUP BY c.practice_area 
+                        ORDER BY count DESC
+                    `).all(authUser.id, authUser.id);
+
+                    const caseTypes = db.prepare(`
+                        SELECT c.case_type, COUNT(*) as count 
+                        FROM cases c 
+                        WHERE c.owner_id = ? OR c.client_id = ?
+                        GROUP BY c.case_type 
+                        ORDER BY count DESC 
+                        LIMIT 8
+                    `).all(authUser.id, authUser.id);
+
+                    return sendJson(res, 200, {
+                        totalCases,
+                        activeCases,
+                        urgentCases,
+                        upcomingHearings,
+                        pendingTasks,
+                        totalClients,
+                        totalBilled: billingTotals.total_billed,
+                        pendingRecovery: billingTotals.pending_recovery,
+                        practiceAreas,
+                        caseTypes
+                    });
+                }
+            }
+
+            // Cases list & create (Scoped personally to authUser and chambers admin)
             if (pathname === '/api/cases' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) {
+                    // Do not leak confidential court dockets to unauthenticated visitors
+                    return sendJson(res, 200, []);
+                }
+
+                const isAdmin = isChamberAdmin(authUser);
                 let sql = `
                     SELECT c.*, cl.name as client_name, cl.email as client_email, cl.phone as client_phone,
                            (SELECT COUNT(*) FROM hearings WHERE case_id = c.id AND hearing_date >= DATE('now')) as upcoming_hearings_count,
@@ -256,6 +366,11 @@ const server = http.createServer(async (req, res) => {
                     WHERE 1=1
                 `;
                 const params = [];
+
+                if (!isAdmin) {
+                    sql += ' AND (c.owner_id = ? OR c.client_id = ?)';
+                    params.push(authUser.id, authUser.id);
+                }
 
                 if (query.status && query.status !== 'All') {
                     if (query.status === 'Active') {
@@ -310,10 +425,18 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (pathname === '/api/cases' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) {
+                    return sendJson(res, 401, { error: 'Please log in to add or file a case.' });
+                }
+                const isAdm = isChamberAdmin(authUser);
                 const b = await parseJsonBody(req);
                 if (!b.case_number || !b.title) {
                     return sendJson(res, 400, { error: 'Case Number and Title are required' });
                 }
+
+                const clientId = b.client_id ? Number(b.client_id) : (isAdm ? null : authUser.id);
+                const ownerId = authUser.id;
 
                 const stmt = db.prepare(`
                     INSERT INTO cases (
@@ -321,9 +444,9 @@ const server = http.createServer(async (req, res) => {
                         practice_area, status, stage_purpose, priority, court_name, bench_designation,
                         court_item_no, state_name, district_name, advocate_brief, opposite_advocate,
                         vakalatnama_status, fee_type, fee_due, appearance_fee, fee_received, limitation_date,
-                        date_next_list, date_last_list, disposition_name, summary, advocate_notes
+                        date_next_list, date_last_list, disposition_name, summary, advocate_notes, owner_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `);
 
                 const result = stmt.run(
@@ -333,7 +456,7 @@ const server = http.createServer(async (req, res) => {
                     b.title,
                     b.petitioner || b.title.split('v.')[0] || 'Petitioner',
                     b.respondent || b.title.split('v.')[1] || 'Respondent',
-                    b.client_id ? Number(b.client_id) : null,
+                    clientId,
                     b.practice_area || 'General Litigation Practice',
                     b.status || 'Active Matter',
                     b.stage_purpose || 'Notice & Summons Stage',
@@ -355,7 +478,8 @@ const server = http.createServer(async (req, res) => {
                     b.date_last_list || null,
                     b.disposition_name || null,
                     b.summary || '',
-                    b.advocate_notes || ''
+                    b.advocate_notes || '',
+                    ownerId
                 );
 
                 const newCase = db.prepare('SELECT * FROM cases WHERE id = ?').get(result.lastInsertRowid);
@@ -366,6 +490,21 @@ const server = http.createServer(async (req, res) => {
             const caseIdMatch = pathname.match(/^\/api\/cases\/(\d+)$/);
             if (caseIdMatch) {
                 const caseId = Number(caseIdMatch[1]);
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) {
+                    return sendJson(res, 401, { error: 'Authentication required' });
+                }
+                const isAdm = isChamberAdmin(authUser);
+
+                const existingCase = db.prepare('SELECT * FROM cases WHERE id = ?').get(caseId);
+                if (!existingCase) {
+                    return sendJson(res, 404, { error: 'Case not found' });
+                }
+
+                // Strictly isolate data: Admin OR Creator Owner OR Associated Client
+                if (!isAdm && existingCase.owner_id !== authUser.id && existingCase.client_id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Access denied: this matter is confidential to its creator and chambers admin.' });
+                }
 
                 if (req.method === 'GET') {
                     const c = db.prepare(`
@@ -374,10 +513,6 @@ const server = http.createServer(async (req, res) => {
                         LEFT JOIN clients cl ON c.client_id = cl.id
                         WHERE c.id = ?
                     `).get(caseId);
-
-                    if (!c) {
-                        return sendJson(res, 404, { error: 'Case not found' });
-                    }
 
                     const hearings = db.prepare('SELECT * FROM hearings WHERE case_id = ? ORDER BY hearing_date ASC').all(caseId);
                     const tasks = db.prepare('SELECT * FROM tasks WHERE case_id = ? ORDER BY due_date ASC').all(caseId);
@@ -436,7 +571,7 @@ const server = http.createServer(async (req, res) => {
                         b.title,
                         b.petitioner,
                         b.respondent,
-                        b.client_id ? Number(b.client_id) : null,
+                        b.client_id ? Number(b.client_id) : existingCase.client_id,
                         b.practice_area,
                         b.status,
                         b.stage_purpose,
@@ -465,6 +600,9 @@ const server = http.createServer(async (req, res) => {
                 }
 
                 if (req.method === 'DELETE') {
+                    if (!isAdm && existingCase.owner_id !== authUser.id) {
+                        return sendJson(res, 403, { error: 'Only the matter creator or chambers admin can delete this record' });
+                    }
                     db.prepare('DELETE FROM cases WHERE id = ?').run(caseId);
                     return sendJson(res, 200, { success: true, message: 'Case removed from chambers docket' });
                 }
@@ -474,6 +612,15 @@ const server = http.createServer(async (req, res) => {
             const feeDueMatch = pathname.match(/^\/api\/cases\/(\d+)\/fee-due$/);
             if (feeDueMatch && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
                 const caseId = Number(feeDueMatch[1]);
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
+                const c = db.prepare('SELECT * FROM cases WHERE id = ?').get(caseId);
+                if (!c) return sendJson(res, 404, { error: 'Case not found' });
+                if (!isAdm && c.owner_id !== authUser.id && c.client_id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Unauthorized to modify this case' });
+                }
+
                 const b = await parseJsonBody(req);
                 const nextVal = (b.fee_due === 'Yes' || b.fee_due === true) ? 'Yes' : 'No';
                 db.prepare('UPDATE cases SET fee_due = ? WHERE id = ?').run(nextVal, caseId);
@@ -485,7 +632,9 @@ const server = http.createServer(async (req, res) => {
             const updateBusinessMatch = pathname.match(/^\/api\/cases\/(\d+)\/update-business$/);
             if (updateBusinessMatch && req.method === 'POST') {
                 const caseId = Number(updateBusinessMatch[1]);
-                const b = await parseJsonBody(req);
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
 
                 const c = db.prepare(`
                     SELECT c.*, cl.name as client_name, cl.phone as client_phone
@@ -496,6 +645,9 @@ const server = http.createServer(async (req, res) => {
 
                 if (!c) {
                     return sendJson(res, 404, { error: 'Case not found' });
+                }
+                if (!isAdm && c.owner_id !== authUser.id && c.client_id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Unauthorized to update proceedings for this matter' });
                 }
 
                 const businessText = (b.business_of_the_day || '').trim();
@@ -702,11 +854,14 @@ const server = http.createServer(async (req, res) => {
                 // Mark verified
                 db.prepare(`UPDATE otp_verifications SET status = 'Verified' WHERE id = ?`).run(pendingOtp.id);
 
-                const casesCount = db.prepare('SELECT COUNT(*) as cnt FROM cases WHERE client_id = ?').get(matchedClient.id).cnt;
+                const isAdm = isChamberAdmin(matchedClient);
+                const casesCount = db.prepare('SELECT COUNT(*) as cnt FROM cases WHERE owner_id = ? OR client_id = ?').get(matchedClient.id, matchedClient.id).cnt;
 
                 return sendJson(res, 200, {
                     success: true,
                     client: matchedClient,
+                    is_admin: isAdm,
+                    role: matchedClient.role || (isAdm ? 'admin' : 'client'),
                     casesCount,
                     cases_count: casesCount
                 });
@@ -724,12 +879,14 @@ const server = http.createServer(async (req, res) => {
 
                 // Search in clients table or auto-register new mobile number
                 const matchedClient = getOrCreateClientByPhone(db, digits, inputPhone, b.name);
-
-                const casesCount = db.prepare('SELECT COUNT(*) as cnt FROM cases WHERE client_id = ?').get(matchedClient.id).cnt;
+                const isAdm = isChamberAdmin(matchedClient);
+                const casesCount = db.prepare('SELECT COUNT(*) as cnt FROM cases WHERE owner_id = ? OR client_id = ?').get(matchedClient.id, matchedClient.id).cnt;
 
                 return sendJson(res, 200, {
                     success: true,
                     client: matchedClient,
+                    is_admin: isAdm,
+                    role: matchedClient.role || (isAdm ? 'admin' : 'client'),
                     casesCount,
                     cases_count: casesCount
                 });
@@ -742,20 +899,25 @@ const server = http.createServer(async (req, res) => {
                     return sendJson(res, 400, { error: 'client_id is required' });
                 }
 
+                const authUser = getAuthUser(req, query, db);
+                if (authUser && !isChamberAdmin(authUser) && authUser.id !== clientId) {
+                    return sendJson(res, 403, { error: 'Access denied: client data is confidential to profile owner and admin.' });
+                }
+
                 const client = db.prepare('SELECT * FROM clients WHERE id = ?').get(clientId);
                 if (!client) {
                     return sendJson(res, 404, { error: 'Client not found' });
                 }
 
-                // Only cases belonging to this client
+                // Only cases belonging to or created by this client
                 const clientCases = db.prepare(`
                     SELECT c.*,
                            (SELECT COUNT(*) FROM hearings WHERE case_id = c.id) as hearings_count,
                            (SELECT COUNT(*) FROM pleadings_documents WHERE case_id = c.id) as docs_count
                     FROM cases c
-                    WHERE c.client_id = ?
+                    WHERE c.client_id = ? OR c.owner_id = ?
                     ORDER BY c.id DESC
-                `).all(clientId);
+                `).all(clientId, clientId);
 
                 const caseIds = clientCases.map(c => c.id);
 
@@ -810,7 +972,12 @@ const server = http.createServer(async (req, res) => {
             }
 
             // WhatsApp Dispatches Log
+            // WhatsApp Dispatches Log
             if (pathname === '/api/whatsapp-logs' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 200, []);
+                const isAdm = isChamberAdmin(authUser);
+
                 let sql = `
                     SELECT w.*, c.case_number, c.title as case_title, c.cino
                     FROM whatsapp_logs w
@@ -818,6 +985,10 @@ const server = http.createServer(async (req, res) => {
                     WHERE 1=1
                 `;
                 const params = [];
+                if (!isAdm) {
+                    sql += ' AND (w.client_id = ? OR c.owner_id = ?)';
+                    params.push(authUser.id, authUser.id);
+                }
                 if (query.case_id) {
                     sql += ' AND w.case_id = ?';
                     params.push(Number(query.case_id));
@@ -830,24 +1001,36 @@ const server = http.createServer(async (req, res) => {
                 return sendJson(res, 200, db.prepare(sql).all(...params));
             }
 
-            // Clients CRUD (with BCI conflict check)
+            // Clients CRUD (with BCI conflict check, Scoped Personally)
             if (pathname === '/api/clients' && req.method === 'GET') {
-                const clients = db.prepare(`
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 200, []);
+                const isAdm = isChamberAdmin(authUser);
+
+                let sql = `
                     SELECT cl.*, 
                            (SELECT COUNT(*) FROM cases WHERE client_id = cl.id) as case_count
                     FROM clients cl
-                    ORDER BY cl.name ASC
-                `).all();
+                `;
+                const params = [];
+                if (!isAdm) {
+                    sql += ' WHERE (cl.owner_id = ? OR cl.id = ?)';
+                    params.push(authUser.id, authUser.id);
+                }
+                sql += ' ORDER BY cl.name ASC';
+                const clients = db.prepare(sql).all(...params);
                 return sendJson(res, 200, clients);
             }
 
             if (pathname === '/api/clients' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Please log in to add clients.' });
                 const b = await parseJsonBody(req);
                 if (!b.name) return sendJson(res, 400, { error: 'Client name is required' });
 
                 const stmt = db.prepare(`
-                    INSERT INTO clients (name, client_type, email, phone, address, notes, bci_conflict_check)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO clients (name, client_type, email, phone, address, notes, bci_conflict_check, owner_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `);
                 const result = stmt.run(
                     b.name,
@@ -856,7 +1039,8 @@ const server = http.createServer(async (req, res) => {
                     b.phone || '',
                     b.address || '',
                     b.notes || '',
-                    b.bci_conflict_check !== undefined ? Number(b.bci_conflict_check) : 1
+                    b.bci_conflict_check !== undefined ? Number(b.bci_conflict_check) : 1,
+                    authUser.id
                 );
                 return sendJson(res, 201, { id: result.lastInsertRowid, ...b });
             }
@@ -864,6 +1048,16 @@ const server = http.createServer(async (req, res) => {
             const clientIdMatch = pathname.match(/^\/api\/clients\/(\d+)$/);
             if (clientIdMatch) {
                 const clientId = Number(clientIdMatch[1]);
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
+                const targetClient = db.prepare('SELECT * FROM clients WHERE id = ?').get(clientId);
+                if (!targetClient) return sendJson(res, 404, { error: 'Client not found' });
+
+                if (!isAdm && targetClient.owner_id !== authUser.id && targetClient.id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Unauthorized to modify this client profile' });
+                }
+
                 if (req.method === 'PUT') {
                     const b = await parseJsonBody(req);
                     db.prepare(`
@@ -880,6 +1074,10 @@ const server = http.createServer(async (req, res) => {
 
             // Case Calendar (Full Indian Court Diary & NDOH Schedule)
             if (pathname === '/api/calendar' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 200, { hearings: [], ndohCases: [] });
+                const isAdm = isChamberAdmin(authUser);
+
                 let sql = `
                     SELECT h.id as hearing_id, h.case_id, h.hearing_title, h.hearing_type, h.hearing_date, 
                            h.hearing_time, h.court_room, h.item_no, h.bench, h.advocate, h.status as hearing_status,
@@ -889,6 +1087,11 @@ const server = http.createServer(async (req, res) => {
                     WHERE 1=1
                 `;
                 const params = [];
+                if (!isAdm) {
+                    sql += ' AND (c.owner_id = ? OR c.client_id = ?)';
+                    params.push(authUser.id, authUser.id);
+                }
+
                 let monthPrefix = query.month;
                 if (query.year && query.month && query.month.length <= 2) {
                     monthPrefix = `${query.year}-${query.month.padStart(2, '0')}`;
@@ -909,6 +1112,10 @@ const server = http.createServer(async (req, res) => {
                     WHERE date_next_list IS NOT NULL AND date_next_list != ''
                 `;
                 const caseParams = [];
+                if (!isAdm) {
+                    caseSql += ' AND (owner_id = ? OR client_id = ?)';
+                    caseParams.push(authUser.id, authUser.id);
+                }
                 if (monthPrefix) {
                     caseSql += ' AND date_next_list LIKE ?';
                     caseParams.push(`${monthPrefix}%`);
@@ -923,6 +1130,10 @@ const server = http.createServer(async (req, res) => {
 
             // Hearings (Indian Court Appearances & Daily Board)
             if (pathname === '/api/hearings' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 200, []);
+                const isAdm = isChamberAdmin(authUser);
+
                 let sql = `
                     SELECT h.*, c.title as case_title, c.case_number, c.cino, c.court_name as establishment_name
                     FROM hearings h
@@ -930,6 +1141,10 @@ const server = http.createServer(async (req, res) => {
                     WHERE 1=1
                 `;
                 const params = [];
+                if (!isAdm) {
+                    sql += ' AND (c.owner_id = ? OR c.client_id = ?)';
+                    params.push(authUser.id, authUser.id);
+                }
                 if (query.case_id) {
                     sql += ' AND h.case_id = ?';
                     params.push(Number(query.case_id));
@@ -943,7 +1158,17 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (pathname === '/api/hearings' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
+
                 const b = await parseJsonBody(req);
+                const c = db.prepare('SELECT * FROM cases WHERE id = ?').get(b.case_id);
+                if (!c) return sendJson(res, 404, { error: 'Case not found' });
+                if (!isAdm && c.owner_id !== authUser.id && c.client_id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Unauthorized to schedule hearing for this matter' });
+                }
+
                 const stmt = db.prepare(`
                     INSERT INTO hearings (case_id, hearing_title, hearing_type, hearing_date, hearing_time, court_room, item_no, bench, advocate, board_stage, daily_orders, status)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -971,12 +1196,24 @@ const server = http.createServer(async (req, res) => {
 
             const hearingIdMatch = pathname.match(/^\/api\/hearings\/(\d+)$/);
             if (hearingIdMatch && req.method === 'DELETE') {
-                db.prepare('DELETE FROM hearings WHERE id = ?').run(Number(hearingIdMatch[1]));
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
+                const hId = Number(hearingIdMatch[1]);
+                const h = db.prepare('SELECT h.*, c.owner_id, c.client_id FROM hearings h JOIN cases c ON h.case_id = c.id WHERE h.id = ?').get(hId);
+                if (h && !isAdm && h.owner_id !== authUser.id && h.client_id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Unauthorized' });
+                }
+                db.prepare('DELETE FROM hearings WHERE id = ?').run(hId);
                 return sendJson(res, 200, { success: true });
             }
 
             // Tasks (Chamber Workflow & Filings)
             if (pathname === '/api/tasks' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 200, []);
+                const isAdm = isChamberAdmin(authUser);
+
                 let sql = `
                     SELECT t.*, c.title as case_title, c.case_number, c.cino
                     FROM tasks t
@@ -984,6 +1221,10 @@ const server = http.createServer(async (req, res) => {
                     WHERE 1=1
                 `;
                 const params = [];
+                if (!isAdm) {
+                    sql += ' AND (c.owner_id = ? OR c.client_id = ? OR t.owner_id = ?)';
+                    params.push(authUser.id, authUser.id, authUser.id);
+                }
                 if (query.case_id) {
                     sql += ' AND t.case_id = ?';
                     params.push(Number(query.case_id));
@@ -997,12 +1238,14 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (pathname === '/api/tasks' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
                 const b = await parseJsonBody(req);
                 const stmt = db.prepare(`
-                    INSERT INTO tasks (case_id, title, assigned_to, due_date, priority, status)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO tasks (case_id, title, assigned_to, due_date, priority, status, owner_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 `);
-                const r = stmt.run(b.case_id || null, b.title, b.assigned_to || '', b.due_date || '', b.priority || 'Regular', b.status || 'Pending');
+                const r = stmt.run(b.case_id || null, b.title, b.assigned_to || '', b.due_date || '', b.priority || 'Regular', b.status || 'Pending', authUser.id);
                 return sendJson(res, 201, { id: r.lastInsertRowid, ...b });
             }
 
@@ -1022,6 +1265,10 @@ const server = http.createServer(async (req, res) => {
 
             // Pleadings & Documents
             if (pathname === '/api/documents' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 200, []);
+                const isAdm = isChamberAdmin(authUser);
+
                 let sql = `
                     SELECT d.*, c.title as case_title, c.case_number, c.cino
                     FROM pleadings_documents d
@@ -1029,6 +1276,10 @@ const server = http.createServer(async (req, res) => {
                     WHERE 1=1
                 `;
                 const params = [];
+                if (!isAdm) {
+                    sql += ' AND (c.owner_id = ? OR c.client_id = ?)';
+                    params.push(authUser.id, authUser.id);
+                }
                 if (query.case_id) {
                     sql += ' AND d.case_id = ?';
                     params.push(Number(query.case_id));
@@ -1038,7 +1289,16 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (pathname === '/api/documents' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
                 const b = await parseJsonBody(req);
+                const c = db.prepare('SELECT * FROM cases WHERE id = ?').get(b.case_id);
+                if (!c) return sendJson(res, 404, { error: 'Case not found' });
+                if (!isAdm && c.owner_id !== authUser.id && c.client_id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Unauthorized to add documents to this matter' });
+                }
+
                 const stmt = db.prepare(`
                     INSERT INTO pleadings_documents (case_id, title, category, annexure_no, file_type, file_size, tags, summary)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -1059,6 +1319,10 @@ const server = http.createServer(async (req, res) => {
 
             // Fee Ledger (Indian Chambers Accounting)
             if (pathname === '/api/billing' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 200, []);
+                const isAdm = isChamberAdmin(authUser);
+
                 let sql = `
                     SELECT f.*, c.title as case_title, c.case_number, c.cino
                     FROM fee_ledger f
@@ -1066,6 +1330,10 @@ const server = http.createServer(async (req, res) => {
                     WHERE 1=1
                 `;
                 const params = [];
+                if (!isAdm) {
+                    sql += ' AND (c.owner_id = ? OR c.client_id = ?)';
+                    params.push(authUser.id, authUser.id);
+                }
                 if (query.case_id) {
                     sql += ' AND f.case_id = ?';
                     params.push(Number(query.case_id));
@@ -1075,7 +1343,16 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (pathname === '/api/billing' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
                 const b = await parseJsonBody(req);
+                const c = db.prepare('SELECT * FROM cases WHERE id = ?').get(b.case_id);
+                if (!c) return sendJson(res, 404, { error: 'Case not found' });
+                if (!isAdm && c.owner_id !== authUser.id && c.client_id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Unauthorized' });
+                }
+
                 const stmt = db.prepare(`
                     INSERT INTO fee_ledger (case_id, date, advocate_name, amount, fee_category, description, payment_status, receipt_no)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -1099,14 +1376,23 @@ const server = http.createServer(async (req, res) => {
 
             // Case Diary / Order Sheet Logs
             if (pathname === '/api/notes' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
                 const b = await parseJsonBody(req);
+                const c = db.prepare('SELECT * FROM cases WHERE id = ?').get(b.case_id);
+                if (!c) return sendJson(res, 404, { error: 'Case not found' });
+                if (!isAdm && c.owner_id !== authUser.id && c.client_id !== authUser.id) {
+                    return sendJson(res, 403, { error: 'Unauthorized to add diary entry' });
+                }
+
                 const stmt = db.prepare(`
                     INSERT INTO case_diary (case_id, author, diary_category, entry, citation_ref)
                     VALUES (?, ?, ?, ?, ?)
                 `);
                 const r = stmt.run(
                     b.case_id,
-                    b.author || 'Chamber Advocate',
+                    b.author || authUser.name || 'Chamber Advocate',
                     b.diary_category || 'Court Proceeding / Daily Order',
                     b.entry,
                     b.citation_ref || ''
@@ -1120,8 +1406,12 @@ const server = http.createServer(async (req, res) => {
                 return sendJson(res, 200, { success: true });
             }
 
-            // Export Database JSON
+            // Export Database JSON (Admin only)
             if (pathname === '/api/export' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) return sendJson(res, 401, { error: 'Authentication required' });
+                const isAdm = isChamberAdmin(authUser);
+                if (!isAdm) return sendJson(res, 403, { error: 'Chamber export is reserved for Chambers Administrator' });
                 const backup = {
                     version: '2.0-IN',
                     jurisdiction: 'India (Advocates Act 1961)',

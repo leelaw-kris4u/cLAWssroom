@@ -200,8 +200,21 @@ function getDatabase() {
             `);
         }
     } catch (_) {}
-
-
+    try {
+        db.exec(`ALTER TABLE cases ADD COLUMN owner_id INTEGER;`);
+    } catch (_) {}
+    try {
+        db.exec(`ALTER TABLE clients ADD COLUMN owner_id INTEGER;`);
+    } catch (_) {}
+    try {
+        db.exec(`ALTER TABLE clients ADD COLUMN role TEXT DEFAULT 'client';`);
+    } catch (_) {}
+    try {
+        db.exec(`ALTER TABLE tasks ADD COLUMN owner_id INTEGER;`);
+    } catch (_) {}
+    try {
+        db.exec(`UPDATE clients SET role = 'admin' WHERE REPLACE(REPLACE(phone, ' ', ''), '-', '') LIKE '%8121578785%' OR REPLACE(REPLACE(phone, ' ', ''), '-', '') LIKE '%9493489498%';`);
+    } catch (_) {}
 
     return db;
 }

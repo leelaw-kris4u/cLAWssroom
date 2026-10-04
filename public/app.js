@@ -3,6 +3,30 @@
  * Jurisdiction: Republic of India
  */
 
+// Global fetch interceptor to attach authenticated user ID automatically
+const originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+    options = options || {};
+    options.headers = options.headers || {};
+    let uid = null;
+    try {
+        const sess = localStorage.getItem('clawssroom_session');
+        if (sess) {
+            const u = JSON.parse(sess);
+            if (u && u.id) uid = u.id;
+        }
+    } catch (_) {}
+
+    if (uid) {
+        if (options.headers instanceof Headers) {
+            options.headers.set('x-user-id', String(uid));
+        } else {
+            options.headers['x-user-id'] = String(uid);
+        }
+    }
+    return originalFetch(url, options);
+};
+
 class IndianLegalPortalApp {
     constructor() {
         this.currentView = 'dashboard';
@@ -14,6 +38,10 @@ class IndianLegalPortalApp {
         this.tasks = [];
         this.billing = [];
         this.stats = {};
+
+        // Authentication & Profile State
+        this.currentUser = null;
+        this.isAdmin = false;
 
         // Case Calendar State
         this.calCurrentDate = new Date();
@@ -43,7 +71,66 @@ class IndianLegalPortalApp {
         this.setupCalendarEvents();
         this.updateDateDisplay();
 
-        // Load initial data
+        // Check for active logged-in profile
+        const savedSession = localStorage.getItem('clawssroom_session');
+        if (savedSession) {
+            try {
+                const u = JSON.parse(savedSession);
+                if (u && u.id) {
+                    this.currentUser = u;
+                    this.isAdmin = this.checkIsAdmin(u);
+                    this.isClientMode = !this.isAdmin;
+                    this.loggedInClient = u;
+
+                    // Verify session with server asynchronously
+                    fetch('/api/auth/me')
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data && data.authenticated && data.user) {
+                                this.currentUser = data.user;
+                                this.isAdmin = Boolean(data.is_admin);
+                                this.isClientMode = !this.isAdmin;
+                                this.loggedInClient = data.user;
+                                localStorage.setItem('clawssroom_session', JSON.stringify(data.user));
+                                this.updateAuthUI();
+                            }
+                        })
+                        .catch(() => {});
+                }
+            } catch (_) {
+                localStorage.removeItem('clawssroom_session');
+            }
+        }
+
+        this.updateAuthUI();
+
+        // Load data if authenticated
+        if (this.currentUser) {
+            await this.refreshAllData();
+        } else {
+            // Unauthenticated state: secure data views
+            this.renderCasesTable([]);
+            this.renderRecentCasesTable([]);
+            this.renderHearingsGrid([]);
+            this.renderTasksList([]);
+            this.renderClientsTable([]);
+            this.renderBillingTable([]);
+            this.renderPracticeAreasList([]);
+            this.updateBadges();
+        }
+
+        this.checkDraftBadge();
+    }
+
+    checkIsAdmin(user) {
+        if (!user) return false;
+        if (user.role === 'admin') return true;
+        const adminPhones = ['8121578785', '9493489498'];
+        const digits = (user.phone || '').replace(/\D/g, '').slice(-10);
+        return adminPhones.includes(digits);
+    }
+
+    async refreshAllData() {
         await this.loadClients();
         await this.loadStats();
         await this.loadCases();
@@ -51,7 +138,131 @@ class IndianLegalPortalApp {
         await this.loadTasks();
         await this.loadBilling();
         await this.loadCalendarData();
-        this.checkDraftBadge();
+        this.updateBadges();
+    }
+
+    updateBadges() {
+        const activeCount = this.cases.filter(c => !['Disposed', 'Disposed / Decreed', 'Dismissed', 'Transferred'].includes(c.status)).length;
+        const upcomingCount = this.hearings.filter(h => new Date(h.hearing_date) >= new Date(new Date().toDateString())).length;
+        const taskCount = this.tasks.filter(t => t.status !== 'Completed').length;
+
+        const navCaseBadge = document.getElementById('navCaseCount');
+        if (navCaseBadge) navCaseBadge.textContent = this.currentUser ? (this.stats.activeCases ?? activeCount) : 0;
+        const navHearBadge = document.getElementById('navHearingCount');
+        if (navHearBadge) navHearBadge.textContent = this.currentUser ? (this.stats.upcomingHearings ?? upcomingCount) : 0;
+        const navTaskBadge = document.getElementById('navTaskCount');
+        if (navTaskBadge) navTaskBadge.textContent = this.currentUser ? (this.stats.pendingTasks ?? taskCount) : 0;
+        const navCalBadge = document.getElementById('navCalendarCount');
+        if (navCalBadge) navCalBadge.textContent = this.currentUser ? (this.calHearings.length || upcomingCount) : 0;
+    }
+
+    updateAuthUI() {
+        const loggedOutEl = document.getElementById('headerAuthLoggedOut');
+        const loggedInEl = document.getElementById('headerAuthLoggedIn');
+        const userNameEl = document.getElementById('headerUserName');
+        const userBadgeEl = document.getElementById('headerUserRoleBadge');
+        const unauthNotice = document.getElementById('unauthenticatedNotice');
+        const sidebarSession = document.getElementById('sidebarSessionInfo');
+
+        if (this.currentUser) {
+            if (loggedOutEl) loggedOutEl.style.display = 'none';
+            if (loggedInEl) loggedInEl.style.display = 'flex';
+            if (userNameEl) userNameEl.textContent = this.currentUser.name || this.currentUser.phone;
+            if (userBadgeEl) {
+                userBadgeEl.textContent = this.isAdmin ? '👑 Chambers Admin' : '👤 Client Profile';
+                userBadgeEl.className = this.isAdmin ? 'badge highlight-gold' : 'badge';
+                userBadgeEl.style.background = this.isAdmin ? 'rgba(212, 175, 55, 0.25)' : 'rgba(59, 130, 246, 0.2)';
+                userBadgeEl.style.color = this.isAdmin ? '#d4af37' : '#60a5fa';
+            }
+            if (unauthNotice) unauthNotice.classList.add('hidden');
+            if (sidebarSession) {
+                sidebarSession.innerHTML = `
+                    <div style="font-size:11px; color:var(--text-muted);">Logged in as:</div>
+                    <div style="font-size:12px; font-weight:600; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                        ${this.escapeHtml(this.currentUser.name || this.currentUser.phone)}
+                    </div>
+                    <button class="btn-text-link" onclick="app.logout()" style="color:var(--accent-rose); font-size:11.5px; margin-top:2px;">🚪 Log Out</button>
+                `;
+            }
+        } else {
+            if (loggedOutEl) loggedOutEl.style.display = 'inline-flex';
+            if (loggedInEl) loggedInEl.style.display = 'none';
+            if (unauthNotice) unauthNotice.classList.remove('hidden');
+            if (sidebarSession) {
+                sidebarSession.innerHTML = `
+                    <div style="font-size:11.5px; color:var(--text-muted);">Session: Logged Out</div>
+                    <button class="btn-text-link" onclick="app.openClientLoginModal()" style="color:var(--primary); font-size:11.5px; margin-top:2px;">🔑 Log In</button>
+                `;
+            }
+        }
+    }
+
+    logout() {
+        localStorage.removeItem('clawssroom_session');
+        this.currentUser = null;
+        this.isAdmin = false;
+        this.isClientMode = false;
+        this.loggedInClient = null;
+        this.clientPortalData = null;
+
+        // Clear in-memory datasets
+        this.cases = [];
+        this.clients = [];
+        this.hearings = [];
+        this.tasks = [];
+        this.billing = [];
+        this.calHearings = [];
+        this.calNdohCases = [];
+        this.stats = {
+            totalCases: 0,
+            activeCases: 0,
+            urgentCases: 0,
+            upcomingHearings: 0,
+            pendingTasks: 0,
+            totalClients: 0,
+            totalBilled: 0,
+            pendingRecovery: 0,
+            practiceAreas: [],
+            caseTypes: []
+        };
+
+        // Reset UI metrics
+        const kpiActive = document.getElementById('kpiActiveCases');
+        if (kpiActive) kpiActive.textContent = '0';
+        const kpiTotal = document.getElementById('kpiTotalCases');
+        if (kpiTotal) kpiTotal.textContent = '0 total eCourts matters';
+        const kpiHear = document.getElementById('kpiUpcomingHearings');
+        if (kpiHear) kpiHear.textContent = '0';
+        const kpiBilled = document.getElementById('kpiTotalBilled');
+        if (kpiBilled) kpiBilled.textContent = '₹0.00';
+        const kpiUnbilled = document.getElementById('kpiUnbilledHours');
+        if (kpiUnbilled) kpiUnbilled.textContent = '₹0.00 pending fee recovery';
+        const kpiTasks = document.getElementById('kpiPendingTasks');
+        if (kpiTasks) kpiTasks.textContent = '0';
+        const kpiClients = document.getElementById('kpiTotalClients');
+        if (kpiClients) kpiClients.textContent = '0 active clients';
+
+        const urgentBanner = document.getElementById('urgentAlertBar');
+        if (urgentBanner) urgentBanner.classList.add('hidden');
+
+        // Hide client banner if open
+        const clientBanner = document.getElementById('clientPortalBanner');
+        if (clientBanner) clientBanner.classList.add('hidden');
+
+        // Re-render empty secured states
+        this.renderCasesTable([]);
+        this.renderRecentCasesTable([]);
+        this.renderHearingsGrid([]);
+        this.renderTasksList([]);
+        this.renderClientsTable([]);
+        this.renderBillingTable([]);
+        this.renderPracticeAreasList([]);
+        this.updateBadges();
+        this.updateAuthUI();
+
+        this.showToast('You have been logged out successfully. All personal docket data has been secured.', 'info');
+        this.navigate('dashboard');
+        this.openClientLoginModal();
     }
 
     initTheme() {
@@ -312,7 +523,11 @@ class IndianLegalPortalApp {
     renderCasesTable(cases) {
         const tbody = document.getElementById('casesTableBody');
         if (!cases || cases.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No matching Indian Court cases found. Click "Add Case to Docket" to enter a matter.</td></tr>`;
+            if (!this.currentUser) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted" style="font-size:13.5px;"><span style="font-size:24px; display:block; margin-bottom:8px;">🔒</span>Personal case dockets are confidential. <button class="btn btn-sm btn-primary" onclick="app.openClientLoginModal()" style="margin-left:8px; background:linear-gradient(135deg, #d4af37, #b8860b); color:#0a0f1d; font-weight:700;">Log In with Mobile Number</button></td></tr>`;
+            } else {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No cases registered under your profile yet. Click "New Case Intake" to add your first court matter.</td></tr>`;
+            }
             return;
         }
 
@@ -1682,12 +1897,22 @@ class IndianLegalPortalApp {
     }
 
     openNewCaseModal() {
+        if (!this.currentUser) {
+            this.showToast('Please log in with your mobile number to add a matter to your docket.', 'warning');
+            this.openClientLoginModal();
+            return;
+        }
+
         document.getElementById('caseForm').reset();
         document.getElementById('caseFormId').value = '';
         document.getElementById('caseFormModalTitle').textContent = 'New Vakalat Intake & eCourts Filing';
         
         // Populate client dropdown
         this.populateClientSelects(this.clients);
+        if (!this.isAdmin && this.currentUser) {
+            const clientSelect = document.getElementById('f_client_id');
+            if (clientSelect) clientSelect.value = String(this.currentUser.id);
+        }
 
         // Pre-fill CNR number format
         const randNum = Math.floor(100000 + Math.random() * 900000);
@@ -2397,28 +2622,31 @@ class IndianLegalPortalApp {
 
             // Successfully authenticated
             this.stopOtpTimer();
-            this.isClientMode = true;
+            this.currentUser = data.client;
+            this.isAdmin = Boolean(data.is_admin);
+            this.isClientMode = !this.isAdmin;
             this.loggedInClient = data.client;
+            localStorage.setItem('clawssroom_session', JSON.stringify(data.client));
+
             this.closeModal('clientLoginModal');
+            this.updateAuthUI();
 
-            // Setup banner
-            document.getElementById('cbClientName').textContent = data.client.name;
-            document.getElementById('cbClientPhone').textContent = data.client.phone;
-            document.getElementById('cbCasesScope').textContent = `Showing strictly your ${data.cases_count} registered matter(s)`;
-            document.getElementById('clientPortalBanner').classList.remove('hidden');
+            if (this.isAdmin) {
+                const banner = document.getElementById('clientPortalBanner');
+                if (banner) banner.classList.add('hidden');
+                await this.refreshAllData();
+                this.navigate('dashboard');
+                this.showToast(`👑 Welcome Advocate A. Leela Krishna! Full Chambers Admin access active.`, 'success');
+            } else {
+                document.getElementById('cbClientName').textContent = data.client.name;
+                document.getElementById('cbClientPhone').textContent = data.client.phone;
+                document.getElementById('cbCasesScope').textContent = `Showing strictly your ${data.cases_count || 0} registered matter(s)`;
+                document.getElementById('clientPortalBanner').classList.remove('hidden');
 
-            // Hide advocate action buttons
-            const newCaseBtn = document.getElementById('btnQuickNewCase');
-            if (newCaseBtn) newCaseBtn.style.display = 'none';
-            const clientLoginBtn = document.getElementById('btnOpenClientLogin');
-            if (clientLoginBtn) clientLoginBtn.style.display = 'none';
-
-            // Load and restrict to client data
-            await this.loadClientPortalData(data.client.id);
-
-            // Switch to cases vault
-            this.navigate('cases');
-            this.showToast(`OTP Verified! Welcome, ${data.client.name}. Accessing your matters.`, 'success');
+                await this.refreshAllData();
+                this.navigate('cases');
+                this.showToast(`OTP Verified! Welcome, ${data.client.name}. Accessing your personal docket.`, 'success');
+            }
         } catch (err) {
             console.error('OTP Verification error:', err);
             if (errEl) {
@@ -2459,28 +2687,7 @@ class IndianLegalPortalApp {
     }
 
     async logoutClientPortal() {
-        this.isClientMode = false;
-        this.loggedInClient = null;
-        this.clientPortalData = null;
-
-        // Hide banner
-        document.getElementById('clientPortalBanner').classList.add('hidden');
-
-        // Restore advocate action buttons
-        const newCaseBtn = document.getElementById('btnQuickNewCase');
-        if (newCaseBtn) newCaseBtn.style.display = 'inline-flex';
-        const clientLoginBtn = document.getElementById('btnOpenClientLogin');
-        if (clientLoginBtn) clientLoginBtn.style.display = 'inline-flex';
-
-        // Reload full advocate data
-        await this.loadCases();
-        await this.loadHearings();
-        await this.loadCalendarData();
-        await this.loadStats();
-        await this.loadBilling();
-
-        this.showToast('Logged out of Client Portal. Restored full Advocate Chambers view.', 'info');
-        this.navigate('dashboard');
+        this.logout();
     }
 
     // ==========================================

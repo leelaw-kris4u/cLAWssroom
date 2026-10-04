@@ -95,6 +95,10 @@
             </nav>
 
             <div class="sidebar-footer">
+                <div id="sidebarSessionInfo" style="padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: var(--radius-md); margin-bottom: 8px; border: 1px solid var(--border-color);">
+                    <div style="font-size:11.5px; color:var(--text-muted);">Session: Logged Out</div>
+                    <button class="btn-text-link" onclick="app.openClientLoginModal()" style="color:var(--primary); font-size:11.5px; margin-top:2px;">🔑 Log In</button>
+                </div>
                 <div class="system-status">
                     <span class="status-dot online"></span>
                     <span class="status-label">Local eCourts DB Active</span>
@@ -138,33 +142,67 @@
                         </svg>
                         <input type="text" id="globalSearchInput" placeholder="Search CNR, OS/CC No, Petitioner, Respondent, Court...">
                     </div>
-                    <button class="btn btn-outline" id="btnOpenClientLogin" onclick="app.openClientLoginModal()" title="Client Access using registered mobile number">
-                        <span style="font-size:15px;">📱</span>
-                        <span>Client Login</span>
-                    </button>
-                    <button class="btn btn-primary" id="btnQuickNewCase">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        <span>New Vakalat / Case Intake</span>
-                        <span id="quickDraftPill" class="draft-pill hidden" title="Unsaved draft intake in progress">Draft</span>
-                    </button>
+
+                    <!-- Auth State: Logged Out -->
+                    <div id="headerAuthLoggedOut" style="display:inline-flex; gap:8px; align-items:center;">
+                        <button class="btn btn-primary" id="btnHeaderLogin" onclick="app.openClientLoginModal()" style="background:linear-gradient(135deg, #d4af37, #b8860b); color:#0a0f1d; font-weight:700; border:none; padding:8px 16px;">
+                            <span style="font-size:15px;">🔐</span>
+                            <span>Log In with Mobile</span>
+                        </button>
+                    </div>
+
+                    <!-- Auth State: Logged In -->
+                    <div id="headerAuthLoggedIn" style="display:none; gap:10px; align-items:center;">
+                        <div class="user-profile-badge" id="userProfileBadge" style="display:flex; align-items:center; gap:8px; padding:6px 12px; background:rgba(212, 175, 55, 0.12); border:1px solid rgba(212, 175, 55, 0.35); border-radius:var(--radius-full); font-size:12.5px;">
+                            <span id="headerUserIcon">👤</span>
+                            <span id="headerUserName" style="font-weight:600; color:var(--text-primary); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">User Name</span>
+                            <span class="badge highlight-gold" id="headerUserRoleBadge" style="font-size:10px; padding:2px 6px;">Client</span>
+                        </div>
+                        <button class="btn btn-primary" id="btnQuickNewCase">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>New Case Intake</span>
+                            <span id="quickDraftPill" class="draft-pill hidden" title="Unsaved draft intake in progress">Draft</span>
+                        </button>
+                        <button class="btn btn-outline" id="btnLogoutBtn" onclick="app.logout()" title="End session and log out securely" style="border-color:rgba(244, 63, 94, 0.5); color:var(--accent-rose); font-weight:600; padding:7px 14px; display:inline-flex; align-items:center; gap:6px;">
+                            <span>🚪</span>
+                            <span>Log Out</span>
+                        </button>
+                    </div>
                 </div>
             </header>
 
             <!-- Client Access Mode Banner (Active when client logs in by phone) -->
             <div id="clientPortalBanner" class="client-mode-banner hidden">
                 <div class="client-banner-left">
-                    <span class="badge" style="background:#128c7e; color:white; font-size:11px; font-weight:700;">📱 Client Access Active</span>
-                    <span class="client-welcome-msg">Client: <strong id="cbClientName">-</strong> (<span id="cbClientPhone" class="font-mono">-</span>)</span>
+                    <span class="badge" style="background:#128c7e; color:white; font-size:11px; font-weight:700;">📱 Personal Docket Active</span>
+                    <span class="client-welcome-msg">Client Profile: <strong id="cbClientName">-</strong> (<span id="cbClientPhone" class="font-mono">-</span>)</span>
                     <span class="client-scope-pill" id="cbCasesScope">Showing strictly your legal matters</span>
                 </div>
                 <div class="client-banner-right">
-                    <button class="btn btn-sm btn-outline-light" onclick="app.logoutClientPortal()">
-                        <span>← Return to Advocate Chambers Mode</span>
+                    <button class="btn btn-sm btn-outline" onclick="app.logout()" style="border-color:rgba(244,63,94,0.6); color:var(--accent-rose); font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                        <span>🚪</span>
+                        <span>Log Out</span>
                     </button>
                 </div>
+            </div>
+
+            <!-- Unauthenticated Visitor Security Notice -->
+            <div id="unauthenticatedNotice" class="login-cta-banner hidden" style="background:linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(184, 134, 11, 0.05)); border:1px solid rgba(212, 175, 55, 0.35); border-radius:var(--radius-lg); padding:16px 20px; margin: 15px 25px 0 25px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+                <div style="display:flex; align-items:center; gap:14px;">
+                    <span style="font-size:28px;">🔒</span>
+                    <div>
+                        <div style="font-weight:700; color:var(--primary); font-size:15px;">Confidential Chambers Portal — Mobile Login Required</div>
+                        <div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">
+                            All case records, filings, hearings, and fee records are protected. Log in with your registered 10-digit mobile number to view and manage your matters.
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="app.openClientLoginModal()" style="background:linear-gradient(135deg, #d4af37, #b8860b); color:#0a0f1d; font-weight:700; padding:8px 18px; border:none;">
+                    <span>📲 Log In with Mobile &rarr;</span>
+                </button>
             </div>
 
             <!-- Toast Container -->
