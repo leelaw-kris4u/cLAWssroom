@@ -49,7 +49,7 @@ function getDatabase() {
         CREATE TABLE IF NOT EXISTS cases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             cino TEXT UNIQUE, -- 16-digit eCourts CNR Number (e.g. TSRA330011622021)
-            case_type TEXT NOT NULL, -- OS, CC, WP(C), CRLA, HMOP, FCOP, DVC, STC.NI, etc.
+            case_type TEXT NOT NULL, -- OS, CC, CC/NI., WP(C), CRLA, HMOP, FCOP, DVC, STC.NI, etc.
             case_number TEXT NOT NULL, -- e.g. OS No. 791/2021, CC No. 720/2021
             title TEXT NOT NULL, -- [Petitioner] vs. [Respondent]
             petitioner TEXT NOT NULL,
@@ -257,11 +257,11 @@ function mapPracticeArea(typeName, purpose) {
     if (t.includes('DVC') || t.includes('F.C.O.P') || t.includes('H.M.O.P') || t.includes('MAT')) {
         return 'Matrimonial & Family Law';
     }
+    if (t.includes('NI') || t.includes('STC') || p.includes('138')) {
+        return 'Negotiable Instruments (Sec 138 NI Act)';
+    }
     if (t.includes('CC') || t.includes('CRLA') || t.includes('BAIL') || t.includes('NDPS') || p.includes('313 CRPC') || p.includes('NBW')) {
         return 'Criminal Law & Bail Matters';
-    }
-    if (t.includes('STC') || t.includes('NI') || p.includes('138')) {
-        return 'Negotiable Instruments (Sec 138 NI Act)';
     }
     if (t.includes('COMM') || t.includes('ARB') || t.includes('CP') || t.includes('CA')) {
         return 'Commercial & Corporate Disputes';

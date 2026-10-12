@@ -433,6 +433,38 @@ class IndianLegalPortalApp {
         // Quick New Case Intake Button in Header
         document.getElementById('btnQuickNewCase').addEventListener('click', () => this.openNewCaseModal());
 
+        // Case Type Change Listener for smart practice area & case number suggestion
+        const caseTypeSelectEl = document.getElementById('f_case_type');
+        if (caseTypeSelectEl) {
+            caseTypeSelectEl.addEventListener('change', (e) => {
+                const val = e.target.value;
+                const paEl = document.getElementById('f_practice_area');
+                if (paEl) {
+                    if (val === 'CC/NI.' || val === 'STC.NI') {
+                        paEl.value = 'Negotiable Instruments (Sec 138 NI Act)';
+                    } else if (val === 'CC' || val === 'CRLA' || val === 'CRLMP.BAIL') {
+                        paEl.value = 'Criminal Law & Bail Matters';
+                    } else if (val === 'DVC' || val === 'F.C.O.P' || val === 'H.M.O.P') {
+                        paEl.value = 'Matrimonial & Family Law';
+                    } else if (val === 'ARB.P.') {
+                        paEl.value = 'Commercial & Corporate Disputes';
+                    } else if (val === 'OS') {
+                        paEl.value = 'Civil Suits, Property & Injunctions';
+                    }
+                }
+                const caseNumEl = document.getElementById('f_case_number');
+                const caseFormId = document.getElementById('caseFormId');
+                if (caseNumEl && (!caseFormId || !caseFormId.value)) {
+                    const curVal = caseNumEl.value.trim();
+                    const year = new Date().getFullYear();
+                    const rand = Math.floor(100 + Math.random() * 900);
+                    if (!curVal || /^(OS|CC|CC\/NI\.|STC\.NI|DVC|F\.C\.O\.P|H\.M\.O\.P|CRLMP\.BAIL|CRLA|WP\(C\)|ARB\.P\.)\s+No\./i.test(curVal)) {
+                        caseNumEl.value = `${val} No. ${rand}/${year}`;
+                    }
+                }
+            });
+        }
+
         // Case Detail Tabs
         document.querySelectorAll('.modal-tab').forEach(tabBtn => {
             tabBtn.addEventListener('click', () => {
