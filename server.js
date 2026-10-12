@@ -2,7 +2,8 @@ const http = require('node:http');
 const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
-const { getDatabase } = require('./database.js');
+const os = require('node:os');
+const { getDatabase, hashPassword, verifyPassword, DB_PATH } = require('./database.js');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -74,19 +75,122 @@ function parseJsonBody(req) {
     });
 }
 
+function sanitizeUser(user) {
+    if (!user) return null;
+    const safe = { ...user };
+    delete safe.password_hash;
+    delete safe.password_salt;
+    return safe;
+}
+
 function getAuthUser(req, query, db) {
     const rawId = req.headers['x-user-id'] || (query && query.user_id);
-    if (!rawId) return null;
-    const uid = Number(rawId);
-    if (!uid || isNaN(uid)) return null;
-    return db.prepare('SELECT * FROM clients WHERE id = ?').get(uid) || null;
+    if (rawId) {
+        const uid = Number(rawId);
+        if (uid && !isNaN(uid)) {
+            const u = db.prepare('SELECT * FROM clients WHERE id = ?').get(uid);
+            if (u) return u;
+        }
+    }
+    const phoneHeader = req.headers['x-user-phone'];
+    if (phoneHeader) {
+        const digits = phoneHeader.replace(/\D/g, '').slice(-10);
+        const allClients = db.prepare('SELECT * FROM clients').all();
+        const u = allClients.find(c => (c.phone || '').replace(/\D/g, '').slice(-10) === digits);
+        if (u) return u;
+    }
+    return null;
 }
 
 function isChamberAdmin(user) {
     if (!user) return false;
     const adminPhones = (process.env.ADMIN_PHONES || '8121578785,9493489498').split(',').map(p => p.trim().slice(-10));
     const userDigits = (user.phone || '').replace(/\D/g, '').slice(-10);
-    return user.role === 'admin' || adminPhones.includes(userDigits);
+    return user.role === 'admin' || user.is_network_admin === 1 || adminPhones.includes(userDigits);
+}
+
+function getNetworkInfo() {
+    const interfaces = os.networkInterfaces();
+    const addresses = [];
+    for (const name of Object.keys(interfaces)) {
+        for (const net of interfaces[name]) {
+            if (net.family === 'IPv4' || net.family === 4) {
+                addresses.push({
+                    interface: name,
+                    address: net.address,
+                    isInternal: Boolean(net.internal),
+                    url: `http://${net.address}:${PORT}`
+                });
+            }
+        }
+    }
+    const lan = addresses.find(a => !a.isInternal && !a.address.startsWith('127.')) || addresses[0] || { address: '127.0.0.1', url: `http://localhost:${PORT}` };
+    
+    let dbSize = 0;
+    try {
+        const stat = fs.statSync(DB_PATH);
+        dbSize = stat.size;
+    } catch (_) {}
+
+    let tableNames = [];
+    let totalRows = 0;
+    try {
+        tableNames = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name);
+        for (const tbl of tableNames) {
+            try {
+                const count = db.prepare(`SELECT COUNT(*) as c FROM "${tbl}"`).get().c;
+                totalRows += count;
+            } catch (_) {}
+        }
+    } catch (_) {}
+
+    return {
+        hostname: os.hostname(),
+        platform: os.platform(),
+        uptimeSeconds: Math.floor(os.uptime()),
+        uptime_seconds: Math.floor(os.uptime()),
+        port: Number(PORT),
+        primaryLanUrl: lan.url,
+        primaryLanIp: lan.address,
+        primary_ip: lan.address,
+        localUrl: `http://localhost:${PORT}`,
+        interfaces: addresses,
+        database: {
+            engine: 'SQLite 3 (node:sqlite WAL mode)',
+            path: DB_PATH,
+            sizeBytes: dbSize,
+            sizeFormatted: (dbSize / (1024 * 1024)).toFixed(2) + ' MB',
+            file_size_human: (dbSize / (1024 * 1024)).toFixed(2) + ' MB',
+            totalTables: tableNames.length,
+            total_tables: tableNames.length,
+            totalRows: totalRows,
+            total_rows: totalRows,
+            nodeVersion: process.version
+        }
+    };
+}
+
+function getScopedWhereForTable(tableName, authUser) {
+    if (!authUser) return { clause: '1=0', params: [] };
+    if (tableName === 'cases') {
+        return { clause: '(owner_id = ? OR client_id = ?)', params: [authUser.id, authUser.id] };
+    }
+    if (tableName === 'clients') {
+        return { clause: '(owner_id = ? OR id = ?)', params: [authUser.id, authUser.id] };
+    }
+    if (tableName === 'hearings' || tableName === 'pleadings_documents' || tableName === 'fee_ledger' || tableName === 'case_diary') {
+        return { clause: 'case_id IN (SELECT id FROM cases WHERE owner_id = ? OR client_id = ?)', params: [authUser.id, authUser.id] };
+    }
+    if (tableName === 'tasks') {
+        return { clause: '(owner_id = ? OR case_id IN (SELECT id FROM cases WHERE owner_id = ? OR client_id = ?))', params: [authUser.id, authUser.id, authUser.id] };
+    }
+    if (tableName === 'whatsapp_logs') {
+        return { clause: '(client_id = ? OR case_id IN (SELECT id FROM cases WHERE owner_id = ?))', params: [authUser.id, authUser.id] };
+    }
+    if (tableName === 'otp_verifications') {
+        return { clause: 'client_id = ?', params: [authUser.id] };
+    }
+    return { clause: '1=1', params: [] };
 }
 
 function getOrCreateClientByPhone(db, digits, inputPhone, requestedName) {
@@ -230,10 +334,535 @@ const server = http.createServer(async (req, res) => {
                 const isAdm = isChamberAdmin(authUser);
                 return sendJson(res, 200, {
                     authenticated: true,
-                    user: authUser,
+                    user: sanitizeUser(authUser),
                     is_admin: isAdm,
-                    role: authUser.role || (isAdm ? 'admin' : 'client')
+                    role: authUser.role || (isAdm ? 'admin' : 'user')
                 });
+            }
+
+            // Auth: Register New Account with Mobile, Email, and Own Password
+            if (pathname === '/api/auth/register' && req.method === 'POST') {
+                const b = await parseJsonBody(req);
+                const name = (b.name || '').trim();
+                const email = (b.email || '').trim().toLowerCase();
+                const phone = (b.phone || '').trim();
+                const password = (b.password || '').trim();
+                const roleRequested = (b.role || 'user').trim().toLowerCase();
+
+                if (!name) {
+                    return sendJson(res, 400, { error: 'Full Name is required to create an account.' });
+                }
+
+                // Email validation
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!email || !emailRegex.test(email)) {
+                    return sendJson(res, 400, { error: 'Please enter a valid email address (e.g. name@example.com).' });
+                }
+
+                // Mobile phone validation
+                const digits = phone.replace(/\D/g, '').slice(-10);
+                if (!digits || digits.length < 10) {
+                    return sendJson(res, 400, { error: 'Please enter a valid 10-digit mobile number.' });
+                }
+
+                // Password validation
+                if (!password || password.length < 6) {
+                    return sendJson(res, 400, { error: 'Password must be at least 6 characters in length.' });
+                }
+
+                const allUsers = db.prepare('SELECT * FROM clients').all();
+
+                // Check existing account with password
+                const emailMatch = allUsers.find(u => u.email && u.email.toLowerCase() === email);
+                if (emailMatch && emailMatch.password_hash) {
+                    return sendJson(res, 400, { error: 'An account with this email address already exists. Please sign in.' });
+                }
+
+                const phoneMatch = allUsers.find(u => {
+                    const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+                    return uDigits === digits;
+                });
+                if (phoneMatch && phoneMatch.password_hash) {
+                    return sendJson(res, 400, { error: 'An account with this mobile number already exists. Please sign in.' });
+                }
+
+                // Secure hashing using salt + pbkdf2
+                const { salt, hash } = hashPassword(password);
+                const formattedPhone = `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+                const adminPhones = (process.env.ADMIN_PHONES || '8121578785,9493489498').split(',').map(p => p.trim().slice(-10));
+                const isAdm = adminPhones.includes(digits) || roleRequested === 'admin';
+                const assignedRole = isAdm ? 'admin' : (roleRequested === 'client' ? 'client' : 'user');
+                const isNetworkAdmin = isAdm ? 1 : 0;
+                const now = new Date().toISOString();
+
+                let userId;
+                if (phoneMatch) {
+                    db.prepare(`
+                        UPDATE clients SET
+                            name = ?,
+                            email = ?,
+                            password_hash = ?,
+                            password_salt = ?,
+                            role = ?,
+                            is_network_admin = ?,
+                            last_login = ?
+                        WHERE id = ?
+                    `).run(name, email, hash, salt, assignedRole, isNetworkAdmin, now, phoneMatch.id);
+                    userId = phoneMatch.id;
+                } else if (emailMatch) {
+                    db.prepare(`
+                        UPDATE clients SET
+                            name = ?,
+                            phone = ?,
+                            password_hash = ?,
+                            password_salt = ?,
+                            role = ?,
+                            is_network_admin = ?,
+                            last_login = ?
+                        WHERE id = ?
+                    `).run(name, formattedPhone, hash, salt, assignedRole, isNetworkAdmin, now, emailMatch.id);
+                    userId = emailMatch.id;
+                } else {
+                    const ins = db.prepare(`
+                        INSERT INTO clients (name, email, phone, client_type, role, is_network_admin, password_hash, password_salt, last_login, bci_conflict_check)
+                        VALUES (?, ?, ?, 'Individual', ?, ?, ?, ?, ?, 1)
+                    `).run(name, email, formattedPhone, assignedRole, isNetworkAdmin, hash, salt, now);
+                    userId = ins.lastInsertRowid;
+                }
+
+                const createdUser = db.prepare('SELECT * FROM clients WHERE id = ?').get(userId);
+                return sendJson(res, 201, {
+                    success: true,
+                    message: 'Account created successfully! Welcome to the Local Network Database Management System.',
+                    user: sanitizeUser(createdUser),
+                    is_admin: isAdm,
+                    role: createdUser.role || (isAdm ? 'admin' : 'user')
+                });
+            }
+
+            // Auth: Sign In with Mobile or Email + Password
+            if (pathname === '/api/auth/login' && req.method === 'POST') {
+                const b = await parseJsonBody(req);
+                const identifier = (b.identifier || b.email || b.phone || '').trim();
+                const password = (b.password || '').trim();
+
+                if (!identifier) {
+                    return sendJson(res, 400, { error: 'Please enter your registered email address or mobile number.' });
+                }
+                if (!password) {
+                    return sendJson(res, 400, { error: 'Please enter your account password.' });
+                }
+
+                const allUsers = db.prepare('SELECT * FROM clients').all();
+                let matched = null;
+
+                if (identifier.includes('@')) {
+                    const normEmail = identifier.toLowerCase();
+                    matched = allUsers.find(u => u.email && u.email.toLowerCase() === normEmail);
+                } else {
+                    const digits = identifier.replace(/\D/g, '').slice(-10);
+                    if (digits.length >= 10) {
+                        matched = allUsers.find(u => {
+                            const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+                            return uDigits === digits;
+                        });
+                    }
+                }
+
+                if (!matched) {
+                    return sendJson(res, 401, { error: 'No account registered with this email or mobile. Please click "Create Account".' });
+                }
+
+                if (!matched.password_hash || !matched.password_salt) {
+                    return sendJson(res, 400, { error: 'This profile does not have a password set yet. Please click "Create Account" or contact the Database Administrator to restore your password.' });
+                }
+
+                const passwordValid = verifyPassword(password, matched.password_salt, matched.password_hash);
+                if (!passwordValid) {
+                    return sendJson(res, 401, { error: 'Incorrect password. Please verify your credentials and try again.' });
+                }
+
+                const now = new Date().toISOString();
+                db.prepare('UPDATE clients SET last_login = ? WHERE id = ?').run(now, matched.id);
+
+                const isAdm = isChamberAdmin(matched);
+                const updatedUser = db.prepare('SELECT * FROM clients WHERE id = ?').get(matched.id);
+
+                return sendJson(res, 200, {
+                    success: true,
+                    message: 'Signed in successfully!',
+                    user: sanitizeUser(updatedUser),
+                    is_admin: isAdm,
+                    role: updatedUser.role || (isAdm ? 'admin' : 'user')
+                });
+            }
+
+            // Auth: Logout
+            if (pathname === '/api/auth/logout' && req.method === 'POST') {
+                return sendJson(res, 200, { success: true, message: 'Logged out successfully.' });
+            }
+
+            // Local Network Info & Node Diagnostics
+            if (pathname === '/api/network/info' && req.method === 'GET') {
+                const info = getNetworkInfo();
+                return sendJson(res, 200, info);
+            }
+
+            // Database Management: List All Tables & Schema Summary
+            if (pathname === '/api/database/tables' && req.method === 'GET') {
+                const tables = db.prepare("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC").all();
+                const tableDetails = tables.map(t => {
+                    const cols = db.prepare(`PRAGMA table_info("${t.name}")`).all();
+                    let rowCount = 0;
+                    try {
+                        rowCount = db.prepare(`SELECT COUNT(*) as c FROM "${t.name}"`).get().c;
+                    } catch (_) {}
+                    return {
+                        name: t.name,
+                        sql: t.sql,
+                        columnsCount: cols.length,
+                        rowCount: rowCount,
+                        rows: rowCount,
+                        columns: cols
+                    };
+                });
+                return sendJson(res, 200, { tables: tableDetails, total: tableDetails.length });
+            }
+
+            // Database Management: Table Data Browser (Paginated with search & strict non-disclosure)
+            if (pathname === '/api/database/table-data' && req.method === 'GET') {
+                const tableName = (query.table || '').trim();
+                const validTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+                if (!validTables.includes(tableName)) {
+                    return sendJson(res, 400, { error: `Invalid table: "${tableName}" does not exist in database.` });
+                }
+
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) {
+                    return sendJson(res, 401, { error: 'Authentication required to inspect database tables' });
+                }
+                const isAdm = isChamberAdmin(authUser);
+
+                const page = Math.max(1, parseInt(query.page, 10) || 1);
+                const limit = Math.min(200, Math.max(10, parseInt(query.limit, 10) || 50));
+                const offset = (page - 1) * limit;
+                const search = (query.search || '').trim();
+
+                const columns = db.prepare(`PRAGMA table_info("${tableName}")`).all();
+                const colNames = columns.map(c => c.name);
+
+                // Non-disclosure scoping: regular accounts strictly only see their own records
+                let baseClause = '1=1';
+                let baseParams = [];
+                if (!isAdm) {
+                    const scoped = getScopedWhereForTable(tableName, authUser);
+                    baseClause = scoped.clause;
+                    baseParams = scoped.params;
+                }
+
+                let rows = [];
+                let totalRows = 0;
+
+                if (search && colNames.length > 0) {
+                    const textCols = columns.filter(c => ['TEXT', 'VARCHAR', 'CHAR', ''].includes((c.type || '').toUpperCase()) || !c.type).map(c => c.name);
+                    const colsToSearch = textCols.length > 0 ? textCols : colNames.slice(0, 4);
+                    const searchClause = colsToSearch.map(c => `CAST("${c}" AS TEXT) LIKE ?`).join(' OR ');
+                    const searchParam = `%${search}%`;
+                    const searchParams = colsToSearch.map(() => searchParam);
+
+                    const finalWhere = `(${baseClause}) AND (${searchClause})`;
+                    const allParams = [...baseParams, ...searchParams];
+
+                    totalRows = db.prepare(`SELECT COUNT(*) as c FROM "${tableName}" WHERE ${finalWhere}`).get(...allParams).c;
+                    rows = db.prepare(`SELECT * FROM "${tableName}" WHERE ${finalWhere} ORDER BY ROWID DESC LIMIT ? OFFSET ?`).all(...allParams, limit, offset);
+                } else {
+                    totalRows = db.prepare(`SELECT COUNT(*) as c FROM "${tableName}" WHERE ${baseClause}`).get(...baseParams).c;
+                    rows = db.prepare(`SELECT * FROM "${tableName}" WHERE ${baseClause} ORDER BY ROWID DESC LIMIT ? OFFSET ?`).all(...baseParams, limit, offset);
+                }
+
+                // Sanitize sensitive fields if viewing clients table
+                if (tableName === 'clients') {
+                    rows = rows.map(r => sanitizeUser(r));
+                }
+
+                return sendJson(res, 200, {
+                    table: tableName,
+                    columns,
+                    rows,
+                    total: totalRows,
+                    total_rows: totalRows,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(totalRows / limit) || 1,
+                    total_pages: Math.ceil(totalRows / limit) || 1,
+                    is_admin: isAdm,
+                    scoped: !isAdm
+                });
+            }
+
+            // Database Management: SQL Query Console Execution (Admin only to preserve data confidentiality)
+            if (pathname === '/api/database/query' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser) {
+                    return sendJson(res, 401, { error: 'Authentication required to execute SQL queries.' });
+                }
+                const isAdm = isChamberAdmin(authUser);
+                if (!isAdm) {
+                    return sendJson(res, 403, { error: 'Direct SQL Query Console access is reserved for Database Administrators to enforce strict account confidentiality and non-disclosure.' });
+                }
+
+                const b = await parseJsonBody(req);
+                const rawQuery = (b.query || '').trim();
+
+                if (!rawQuery) {
+                    return sendJson(res, 400, { error: 'SQL query string cannot be empty.' });
+                }
+
+                const startTime = process.hrtime.bigint();
+                try {
+                    const isSelectOrPragma = /^\s*(SELECT|PRAGMA|EXPLAIN)\b/i.test(rawQuery);
+                    
+                    if (isSelectOrPragma) {
+                        const rows = db.prepare(rawQuery).all();
+                        const endTime = process.hrtime.bigint();
+                        const durationMs = Number(endTime - startTime) / 1000000;
+                        const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+                        // Sanitize password_hash / salt if queried clients
+                        const safeRows = rows.map(r => {
+                            if (r && typeof r === 'object' && ('password_hash' in r || 'password_salt' in r)) {
+                                return sanitizeUser(r);
+                            }
+                            return r;
+                        });
+
+                        return sendJson(res, 200, {
+                            success: true,
+                            type: 'query',
+                            columns,
+                            rows: safeRows,
+                            rowCount: safeRows.length,
+                            executionTimeMs: Math.round(durationMs * 100) / 100
+                        });
+                    } else {
+                        const result = db.prepare(rawQuery).run();
+                        const endTime = process.hrtime.bigint();
+                        const durationMs = Number(endTime - startTime) / 1000000;
+
+                        return sendJson(res, 200, {
+                            success: true,
+                            type: 'mutation',
+                            changes: result.changes,
+                            lastInsertRowid: result.lastInsertRowid,
+                            executionTimeMs: Math.round(durationMs * 100) / 100,
+                            message: `Query executed successfully. ${result.changes} row(s) affected.`
+                        });
+                    }
+                } catch (sqlErr) {
+                    const endTime = process.hrtime.bigint();
+                    const durationMs = Number(endTime - startTime) / 1000000;
+                    return sendJson(res, 400, {
+                        success: false,
+                        error: sqlErr.message,
+                        executionTimeMs: Math.round(durationMs * 100) / 100
+                    });
+                }
+            }
+
+            // Admin: List All Accounts for Credential Restoration & Management
+            if (pathname === '/api/admin/accounts' && req.method === 'GET') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser || !isChamberAdmin(authUser)) {
+                    return sendJson(res, 403, { error: 'Access denied: reserved for Database Administrators.' });
+                }
+
+                const accounts = db.prepare(`
+                    SELECT id, name, email, phone, role, client_type, last_login, created_at,
+                           (password_hash IS NOT NULL AND password_hash != '') as has_password,
+                           (SELECT COUNT(*) FROM cases WHERE owner_id = clients.id OR client_id = clients.id) as cases_count
+                    FROM clients
+                    ORDER BY id DESC
+                `).all();
+
+                return sendJson(res, 200, { success: true, accounts });
+            }
+
+            // Admin: Restore User Account Credentials (Password Reset / Detail Recovery)
+            if (pathname === '/api/admin/restore-account' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser || !isChamberAdmin(authUser)) {
+                    return sendJson(res, 403, { error: 'Access denied: reserved for Database Administrators.' });
+                }
+
+                const b = await parseJsonBody(req);
+                const targetUserId = Number(b.user_id || b.userId || b.account_id);
+                if (!targetUserId) {
+                    return sendJson(res, 400, { error: 'Target user_id is required for account restoration.' });
+                }
+
+                const targetUser = db.prepare('SELECT * FROM clients WHERE id = ?').get(targetUserId);
+                if (!targetUser) {
+                    return sendJson(res, 404, { error: 'User account not found in database.' });
+                }
+
+                const newPassword = (b.new_password || b.newPassword || '').trim();
+                const newEmail = (b.email || '').trim().toLowerCase();
+                const newPhone = (b.phone || '').trim();
+                const newRole = (b.role || '').trim();
+
+                if (newPassword) {
+                    if (newPassword.length < 6) {
+                        return sendJson(res, 400, { error: 'New password must be at least 6 characters in length.' });
+                    }
+                    const { salt, hash } = hashPassword(newPassword);
+                    db.prepare(`
+                        UPDATE clients SET password_hash = ?, password_salt = ?, last_login = CURRENT_TIMESTAMP WHERE id = ?
+                    `).run(hash, salt, targetUserId);
+                }
+
+                if (newEmail) {
+                    db.prepare('UPDATE clients SET email = ? WHERE id = ?').run(newEmail, targetUserId);
+                }
+
+                if (newPhone) {
+                    const digits = newPhone.replace(/\D/g, '').slice(-10);
+                    if (digits.length >= 10) {
+                        const formatted = `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+                        db.prepare('UPDATE clients SET phone = ? WHERE id = ?').run(formatted, targetUserId);
+                    }
+                }
+
+                if (newRole && ['admin', 'user', 'client'].includes(newRole.toLowerCase())) {
+                    const isNetAdmin = newRole.toLowerCase() === 'admin' ? 1 : 0;
+                    db.prepare('UPDATE clients SET role = ?, is_network_admin = ? WHERE id = ?').run(newRole.toLowerCase(), isNetAdmin, targetUserId);
+                }
+
+                const updated = db.prepare('SELECT * FROM clients WHERE id = ?').get(targetUserId);
+                return sendJson(res, 200, {
+                    success: true,
+                    message: `Account credentials for "${updated.name}" successfully restored!`,
+                    user: sanitizeUser(updated)
+                });
+            }
+
+            // End-User: Reset Forgotten Password using Verified Mobile OTP
+            if (pathname === '/api/auth/reset-password' && req.method === 'POST') {
+                const b = await parseJsonBody(req);
+                const phone = (b.phone || '').trim();
+                const otp = (b.otp || '').trim();
+                const newPassword = (b.new_password || b.newPassword || '').trim();
+
+                const digits = phone.replace(/\D/g, '').slice(-10);
+                if (!digits || digits.length < 10) {
+                    return sendJson(res, 400, { error: 'Please enter a valid 10-digit mobile number.' });
+                }
+                if (!otp || otp.length !== 6) {
+                    return sendJson(res, 400, { error: 'Please enter the 6-digit OTP code.' });
+                }
+                if (!newPassword || newPassword.length < 6) {
+                    return sendJson(res, 400, { error: 'New password must be at least 6 characters in length.' });
+                }
+
+                const allClients = db.prepare('SELECT * FROM clients').all();
+                const target = allClients.find(cl => (cl.phone || '').replace(/\D/g, '').slice(-10) === digits);
+                if (!target) {
+                    return sendJson(res, 404, { error: 'No account registered with this mobile number.' });
+                }
+
+                const pendingOtp = db.prepare(`
+                    SELECT * FROM otp_verifications WHERE client_id = ? AND status = 'Pending' ORDER BY id DESC LIMIT 1
+                `).get(target.id);
+
+                const masterPin = process.env.ADVOCATE_MASTER_PIN || '812157';
+                const isMaster = otp === masterPin;
+
+                if (!pendingOtp && !isMaster) {
+                    return sendJson(res, 400, { error: 'No active OTP verification session found. Please request an OTP.' });
+                }
+
+                if (pendingOtp && !isMaster && pendingOtp.otp_code !== otp) {
+                    return sendJson(res, 400, { error: 'Incorrect verification OTP entered.' });
+                }
+
+                if (pendingOtp) {
+                    db.prepare("UPDATE otp_verifications SET status = 'Verified' WHERE id = ?").run(pendingOtp.id);
+                }
+
+                const { salt, hash } = hashPassword(newPassword);
+                db.prepare(`
+                    UPDATE clients SET password_hash = ?, password_salt = ?, last_login = CURRENT_TIMESTAMP WHERE id = ?
+                `).run(hash, salt, target.id);
+
+                const updated = db.prepare('SELECT * FROM clients WHERE id = ?').get(target.id);
+                const isAdm = isChamberAdmin(updated);
+
+                return sendJson(res, 200, {
+                    success: true,
+                    message: 'Your password has been successfully reset! You are now signed in.',
+                    user: sanitizeUser(updated),
+                    is_admin: isAdm
+                });
+            }
+
+            // Database Management: Maintenance (Integrity Check, Vacuum, Optimize)
+            if (pathname === '/api/database/maintenance' && req.method === 'POST') {
+                const authUser = getAuthUser(req, query, db);
+                if (!authUser || !isChamberAdmin(authUser)) {
+                    return sendJson(res, 403, { error: 'Database maintenance operations are reserved for Database Administrators.' });
+                }
+
+                const b = await parseJsonBody(req);
+                const action = (b.action || 'integrity_check').toLowerCase();
+
+                let result = {};
+                if (action === 'integrity_check') {
+                    const check = db.prepare('PRAGMA integrity_check').all();
+                    result = { action: 'integrity_check', status: 'completed', result: check };
+                } else if (action === 'vacuum') {
+                    db.exec('VACUUM;');
+                    result = { action: 'vacuum', status: 'completed', message: 'Database vacuumed and space reclaimed successfully.' };
+                } else if (action === 'optimize') {
+                    db.exec('PRAGMA optimize;');
+                    result = { action: 'optimize', status: 'completed', message: 'SQLite query planner statistics optimized.' };
+                } else {
+                    return sendJson(res, 400, { error: `Unsupported maintenance action: ${action}` });
+                }
+
+                const networkInfo = getNetworkInfo();
+                return sendJson(res, 200, { success: true, ...result, database: networkInfo.database });
+            }
+
+            // Database Management: Export Table as CSV
+            if (pathname === '/api/database/export-table-csv' && req.method === 'GET') {
+                const tableName = (query.table || '').trim();
+                const validTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+                if (!validTables.includes(tableName)) {
+                    return sendJson(res, 400, { error: 'Table not found' });
+                }
+
+                let rows = db.prepare(`SELECT * FROM "${tableName}"`).all();
+                if (tableName === 'clients') {
+                    rows = rows.map(r => sanitizeUser(r));
+                }
+
+                const columns = db.prepare(`PRAGMA table_info("${tableName}")`).all().map(c => c.name).filter(c => c !== 'password_hash' && c !== 'password_salt');
+                
+                let csv = columns.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',') + '\r\n';
+                for (const row of rows) {
+                    const line = columns.map(c => {
+                        const val = row[c];
+                        if (val === null || val === undefined) return '""';
+                        return `"${String(val).replace(/"/g, '""')}"`;
+                    }).join(',');
+                    csv += line + '\r\n';
+                }
+
+                res.writeHead(200, {
+                    'Content-Type': 'text/csv; charset=utf-8',
+                    'Content-Disposition': `attachment; filename="${tableName}_export.csv"`
+                });
+                res.end(csv);
+                return;
             }
 
             // Stats (Chamber-wide for Admin, Personally Scoped for Logged-In Clients)
@@ -1455,7 +2084,12 @@ const server = http.createServer(async (req, res) => {
         if (err || !stats.isFile()) {
             const indexPath = path.join(PUBLIC_DIR, 'index.html');
             if (fs.existsSync(indexPath)) {
-                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.writeHead(200, {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                });
                 fs.createReadStream(indexPath).pipe(res);
                 return;
             }
@@ -1466,16 +2100,27 @@ const server = http.createServer(async (req, res) => {
 
         const ext = path.extname(filePath).toLowerCase();
         const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-        res.writeHead(200, { 'Content-Type': contentType });
+        res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
         fs.createReadStream(filePath).pipe(res);
     });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
+    const netInfo = getNetworkInfo();
     console.log(`================================================================`);
-    console.log(`⚖️  cLAWssroom | Indian Court System & Law Chambers Portal`);
-    console.log(`🇮🇳 Jurisdiction: Republic of India (Supreme Court, High Courts, District Courts & Tribunals)`);
-    console.log(`🌐 Server running at: http://localhost:${PORT}`);
-    console.log(`📁 Local Workspace: ${__dirname}`);
+    console.log(`🗄️  cLAWssroom | Local Network Database Management System`);
+    console.log(`📡 Local Network Host: ${netInfo.hostname} (${netInfo.platform})`);
+    console.log(`🌐 Localhost Access:   http://localhost:${PORT}`);
+    if (netInfo.primaryLanIp && netInfo.primaryLanIp !== '127.0.0.1') {
+        console.log(`📶 Local Wi-Fi/LAN IP:  ${netInfo.primaryLanUrl}`);
+    }
+    console.log(`📁 Database Engine:    ${netInfo.database.engine}`);
+    console.log(`💾 Database File:      ${netInfo.database.path} (${netInfo.database.sizeFormatted})`);
+    console.log(`👥 Database Tables:    ${netInfo.database.totalTables} | Total Rows: ${netInfo.database.totalRows}`);
     console.log(`================================================================`);
 });

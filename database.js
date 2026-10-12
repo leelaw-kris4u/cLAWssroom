@@ -1,8 +1,27 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('node:path');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 
 const DB_PATH = path.join(__dirname, 'clawssroom.db');
+
+function hashPassword(password, salt) {
+    if (!salt) {
+        salt = crypto.randomBytes(16).toString('hex');
+    }
+    const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+    return { salt, hash };
+}
+
+function verifyPassword(password, salt, hash) {
+    if (!password || !salt || !hash) return false;
+    try {
+        const computed = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+        return crypto.timingSafeEqual(Buffer.from(computed, 'utf-8'), Buffer.from(hash, 'utf-8'));
+    } catch (_) {
+        return false;
+    }
+}
 
 function getDatabase() {
     const db = new DatabaseSync(DB_PATH);
@@ -213,7 +232,19 @@ function getDatabase() {
         db.exec(`ALTER TABLE tasks ADD COLUMN owner_id INTEGER;`);
     } catch (_) {}
     try {
-        db.exec(`UPDATE clients SET role = 'admin' WHERE REPLACE(REPLACE(phone, ' ', ''), '-', '') LIKE '%8121578785%' OR REPLACE(REPLACE(phone, ' ', ''), '-', '') LIKE '%9493489498%';`);
+        db.exec(`ALTER TABLE clients ADD COLUMN password_hash TEXT;`);
+    } catch (_) {}
+    try {
+        db.exec(`ALTER TABLE clients ADD COLUMN password_salt TEXT;`);
+    } catch (_) {}
+    try {
+        db.exec(`ALTER TABLE clients ADD COLUMN last_login TEXT;`);
+    } catch (_) {}
+    try {
+        db.exec(`ALTER TABLE clients ADD COLUMN is_network_admin INTEGER DEFAULT 0;`);
+    } catch (_) {}
+    try {
+        db.exec(`UPDATE clients SET role = 'admin', is_network_admin = 1 WHERE REPLACE(REPLACE(phone, ' ', ''), '-', '') LIKE '%8121578785%' OR REPLACE(REPLACE(phone, ' ', ''), '-', '') LIKE '%9493489498%';`);
     } catch (_) {}
 
     return db;
@@ -280,6 +311,8 @@ function mapPriority(purpose, typeName) {
 module.exports = {
     getDatabase,
     DB_PATH,
+    hashPassword,
+    verifyPassword,
     mapPracticeArea,
     mapStatus,
     mapPriority

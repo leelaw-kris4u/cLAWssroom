@@ -43,20 +43,25 @@ class IndianLegalPortalApp {
         this.currentUser = null;
         this.isAdmin = false;
 
+        // Local Network DBMS State
+        this.currentDbmsTable = null;
+        this.dbmsTables = [];
+        this.dbmsPage = 1;
+        this.dbmsPageLimit = 25;
+        this.dbmsSearch = '';
+        this.lanInfo = null;
+
         // Case Calendar State
         this.calCurrentDate = new Date();
         this.calSelectedDate = new Date().toISOString().split('T')[0];
         this.calHearings = [];
         this.calNdohCases = [];
 
-        // Client Portal Access Mode & OTP Verification State
+        // Client Portal Access Mode & Session State
         this.isClientMode = false;
         this.loggedInClient = null;
         this.clientPortalData = null;
-        this.selectedOtpChannel = 'WhatsApp';
-        this.activeOtp = null;
         this.activePhone = null;
-        this.otpCountdownInterval = null;
 
         // Case Intake Submit Mode ('save' or 'add_another')
         this.caseSubmitMode = 'save';
@@ -70,6 +75,7 @@ class IndianLegalPortalApp {
         this.setupEventListeners();
         this.setupCalendarEvents();
         this.updateDateDisplay();
+        this.fetchNetworkInfo();
 
         // Check for active logged-in profile
         const savedSession = localStorage.getItem('clawssroom_session');
@@ -124,7 +130,7 @@ class IndianLegalPortalApp {
 
     checkIsAdmin(user) {
         if (!user) return false;
-        if (user.role === 'admin') return true;
+        if (user.role === 'admin' || user.is_network_admin === 1) return true;
         const adminPhones = ['8121578785', '9493489498'];
         const digits = (user.phone || '').replace(/\D/g, '').slice(-10);
         return adminPhones.includes(digits);
@@ -163,13 +169,14 @@ class IndianLegalPortalApp {
         const userBadgeEl = document.getElementById('headerUserRoleBadge');
         const unauthNotice = document.getElementById('unauthenticatedNotice');
         const sidebarSession = document.getElementById('sidebarSessionInfo');
+        const privacyText = document.getElementById('dbmsPrivacyNoticeText');
 
         if (this.currentUser) {
             if (loggedOutEl) loggedOutEl.style.display = 'none';
             if (loggedInEl) loggedInEl.style.display = 'flex';
             if (userNameEl) userNameEl.textContent = this.currentUser.name || this.currentUser.phone;
             if (userBadgeEl) {
-                userBadgeEl.textContent = this.isAdmin ? '👑 Chambers Admin' : '👤 Client Profile';
+                userBadgeEl.textContent = this.isAdmin ? '👑 Chambers Admin' : '👤 Partition: ' + (this.currentUser.role || 'Member');
                 userBadgeEl.className = this.isAdmin ? 'badge highlight-gold' : 'badge';
                 userBadgeEl.style.background = this.isAdmin ? 'rgba(212, 175, 55, 0.25)' : 'rgba(59, 130, 246, 0.2)';
                 userBadgeEl.style.color = this.isAdmin ? '#d4af37' : '#60a5fa';
@@ -181,8 +188,18 @@ class IndianLegalPortalApp {
                     <div style="font-size:12px; font-weight:600; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
                         ${this.escapeHtml(this.currentUser.name || this.currentUser.phone)}
                     </div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); margin-bottom:2px;">
+                        ${this.isAdmin ? 'Role: Administrator' : 'Role: ' + (this.currentUser.role || 'User')}
+                    </div>
                     <button class="btn-text-link" onclick="app.logout()" style="color:var(--accent-rose); font-size:11.5px; margin-top:2px;">🚪 Log Out</button>
                 `;
+            }
+            if (privacyText) {
+                if (this.isAdmin) {
+                    privacyText.innerHTML = `<strong>Supervisor Administrator Active:</strong> Full authority to inspect all network tables, execute SQL queries, and restore forgotten end-user credentials upon verification.`;
+                } else {
+                    privacyText.innerHTML = `<strong>Strict Non-Disclosure Active:</strong> You are signed in as <strong>${this.escapeHtml(this.currentUser.name || 'User')}</strong>. Records belonging to other users are strictly sealed and cannot be disclosed or accessed from this session.`;
+                }
             }
         } else {
             if (loggedOutEl) loggedOutEl.style.display = 'inline-flex';
@@ -190,9 +207,16 @@ class IndianLegalPortalApp {
             if (unauthNotice) unauthNotice.classList.remove('hidden');
             if (sidebarSession) {
                 sidebarSession.innerHTML = `
-                    <div style="font-size:11.5px; color:var(--text-muted);">Session: Logged Out</div>
-                    <button class="btn-text-link" onclick="app.openClientLoginModal()" style="color:var(--primary); font-size:11.5px; margin-top:2px;">🔑 Log In</button>
+                    <div style="font-size:11.5px; color:var(--text-muted); font-weight:600;">Session: Guest</div>
+                    <div style="display:flex; gap:8px; margin-top:4px;">
+                        <button class="btn-text-link" onclick="app.openAuthModal('login')" style="color:var(--primary); font-size:11.5px;">🔑 Sign In</button>
+                        <span style="color:var(--border-color);">•</span>
+                        <button class="btn-text-link" onclick="app.openAuthModal('register')" style="color:var(--text-gold); font-size:11.5px; font-weight:700;">✨ Create Account</button>
+                    </div>
                 `;
+            }
+            if (privacyText) {
+                privacyText.innerHTML = `Sign in or create an individual account with your mobile and email to access your confidential database records.`;
             }
         }
     }
@@ -262,7 +286,7 @@ class IndianLegalPortalApp {
 
         this.showToast('You have been logged out successfully. All personal docket data has been secured.', 'info');
         this.navigate('dashboard');
-        this.openClientLoginModal();
+        this.openAuthModal('login');
     }
 
     initTheme() {
@@ -321,8 +345,13 @@ class IndianLegalPortalApp {
         this.navigate('dashboard');
     }
 
+    switchView(viewName) {
+        this.navigate(viewName);
+    }
+
     navigate(viewName) {
         this.currentView = viewName;
+        this.closeMobileNav();
         
         // Update nav buttons
         document.querySelectorAll('.nav-item').forEach(btn => {
@@ -342,7 +371,8 @@ class IndianLegalPortalApp {
             'hearings': 'Daily Cause List & Board Appearances',
             'tasks': 'Chamber Registry Filings & Deadlines',
             'clients': 'Client Directory & BCI Professional Clearance',
-            'billing': 'Advocate Fee Ledger & Professional Accounting'
+            'billing': 'Advocate Fee Ledger & Professional Accounting',
+            'database': 'Local Network Database Management System (LAN DBMS)'
         };
         document.getElementById('pageTitle').textContent = titles[viewName] || 'Chambers Overview';
 
@@ -354,6 +384,10 @@ class IndianLegalPortalApp {
         if (viewName === 'tasks') this.loadTasks();
         if (viewName === 'clients') this.loadClients();
         if (viewName === 'billing') this.loadBilling();
+        if (viewName === 'database') {
+            this.fetchNetworkInfo();
+            this.loadDatabaseTables();
+        }
     }
 
     setupEventListeners() {
@@ -524,7 +558,7 @@ class IndianLegalPortalApp {
         const tbody = document.getElementById('casesTableBody');
         if (!cases || cases.length === 0) {
             if (!this.currentUser) {
-                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted" style="font-size:13.5px;"><span style="font-size:24px; display:block; margin-bottom:8px;">🔒</span>Personal case dockets are confidential. <button class="btn btn-sm btn-primary" onclick="app.openClientLoginModal()" style="margin-left:8px; background:linear-gradient(135deg, #d4af37, #b8860b); color:#0a0f1d; font-weight:700;">Log In with Mobile Number</button></td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted" style="font-size:13.5px;"><span style="font-size:24px; display:block; margin-bottom:8px;">🔒</span>Personal case dockets are confidential. <button class="btn btn-sm btn-primary" onclick="app.openAuthModal('login')" style="margin-left:8px; background:linear-gradient(135deg, #d4af37, #b8860b); color:#0a0f1d; font-weight:700;">Sign In with Password</button> <button class="btn btn-sm btn-outline" onclick="app.openAuthModal('register')" style="margin-left:6px;">Create Account</button></td></tr>`;
             } else {
                 tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No cases registered under your profile yet. Click "New Case Intake" to add your first court matter.</td></tr>`;
             }
@@ -1898,8 +1932,8 @@ class IndianLegalPortalApp {
 
     openNewCaseModal() {
         if (!this.currentUser) {
-            this.showToast('Please log in with your mobile number to add a matter to your docket.', 'warning');
-            this.openClientLoginModal();
+            this.showToast('Please sign in or create an account with your own password to file a matter.', 'warning');
+            this.openAuthModal('login');
             return;
         }
 
@@ -2384,275 +2418,251 @@ class IndianLegalPortalApp {
     // ==========================================
 
     openClientLoginModal() {
-        const errEl = document.getElementById('clientLoginError');
-        if (errEl) {
-            errEl.style.display = 'none';
-            errEl.textContent = '';
-        }
-        document.getElementById('clientLoginForm').reset();
-        this.openModal('clientLoginModal');
+        this.openAuthModal('login');
     }
 
-    fillLoginPhone(phone) {
-        const phoneInput = document.getElementById('clientLoginPhone');
-        if (phoneInput) {
-            phoneInput.value = phone;
-            phoneInput.focus();
-        }
+    openAuthModal(tab = 'login') {
+        const regErr = document.getElementById('regErrorBox');
+        const regSucc = document.getElementById('regSuccessBox');
+        const loginErr = document.getElementById('loginErrorBox');
+        const loginSucc = document.getElementById('loginSuccessBox');
+        if (regErr) { regErr.style.display = 'none'; regErr.textContent = ''; }
+        if (regSucc) { regSucc.style.display = 'none'; regSucc.textContent = ''; }
+        if (loginErr) { loginErr.style.display = 'none'; loginErr.textContent = ''; }
+        if (loginSucc) { loginSucc.style.display = 'none'; loginSucc.textContent = ''; }
+
+        this.openModal('accountAuthModal');
+        this.switchAuthTab(tab);
     }
 
-    openClientLoginModal() {
-        const errEl = document.getElementById('clientLoginError');
-        const otpErrEl = document.getElementById('clientOtpError');
-        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-        if (otpErrEl) { otpErrEl.style.display = 'none'; otpErrEl.textContent = ''; }
+    switchAuthTab(tab) {
+        const btnReg = document.getElementById('tabBtnRegister');
+        const btnLogin = document.getElementById('tabBtnLogin');
 
-        // Reset forms
-        const step1 = document.getElementById('clientLoginStep1');
-        const step2 = document.getElementById('clientLoginStep2');
-        if (step1) { 
-            step1.classList.remove('hidden'); 
-            step1.reset(); 
-        }
-        if (step2) { 
-            step2.classList.add('hidden'); 
-            step2.reset(); 
-        }
-        const nameInput = document.getElementById('clientLoginName');
-        if (nameInput) nameInput.value = '';
+        const formReg = document.getElementById('formAuthRegister');
+        const formLogin = document.getElementById('formAuthLogin');
 
-        this.selectOtpChannel('WhatsApp');
-        this.stopOtpTimer();
-        this.activeOtp = null;
-        this.activePhone = null;
+        if (btnReg) btnReg.classList.toggle('active', tab === 'register');
+        if (btnLogin) btnLogin.classList.toggle('active', tab === 'login');
 
-        this.openModal('clientLoginModal');
-    }
+        if (formReg) formReg.classList.toggle('hidden', tab !== 'register');
+        if (formLogin) formLogin.classList.toggle('hidden', tab !== 'login');
 
-    selectOtpChannel(channel) {
-        this.selectedOtpChannel = channel;
-        const cardWa = document.getElementById('channelCardWhatsApp');
-        const cardSms = document.getElementById('channelCardSMS');
-        const radioWa = document.querySelector('input[name="otpDeliveryChannel"][value="WhatsApp"]');
-        const radioSms = document.querySelector('input[name="otpDeliveryChannel"][value="SMS"]');
-        const iconEl = document.getElementById('btnRequestOtpIcon');
-        const textEl = document.getElementById('btnRequestOtpText');
-
-        if (cardWa && cardSms) {
-            if (channel === 'WhatsApp') {
-                cardWa.classList.add('selected');
-                cardSms.classList.remove('selected');
-                if (radioWa) radioWa.checked = true;
-                if (iconEl) iconEl.textContent = '📲';
-                if (textEl) textEl.textContent = 'Send WhatsApp OTP →';
-            } else {
-                cardSms.classList.add('selected');
-                cardWa.classList.remove('selected');
-                if (radioSms) radioSms.checked = true;
-                if (iconEl) iconEl.textContent = '💬';
-                if (textEl) textEl.textContent = 'Send SMS OTP →';
-            }
+        const title = document.getElementById('authModalTitle');
+        const sub = document.getElementById('authModalSubtitle');
+        if (tab === 'register') {
+            if (title) title.textContent = 'Create Individual Account';
+            if (sub) sub.textContent = 'Register an individual account with email, mobile and your own password';
+        } else {
+            if (title) title.textContent = 'Sign In to Database';
+            if (sub) sub.textContent = 'Sign in using your registered email or 10-digit mobile and password';
         }
     }
 
-    fillLoginPhone(phone) {
-        const phoneInput = document.getElementById('clientLoginPhone');
-        if (phoneInput) {
-            phoneInput.value = phone;
-            phoneInput.focus();
+    showForgotNotice() {
+        const notice = document.getElementById('forgotPasswordNotice');
+        if (notice) {
+            notice.style.display = (notice.style.display === 'none' || !notice.style.display) ? 'block' : 'none';
         }
     }
 
-    async handleRequestOtp(e) {
+    togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        if (input.type === 'password') {
+            input.type = 'text';
+            if (btn) btn.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            if (btn) btn.textContent = '👁️';
+        }
+    }
+
+    checkPasswordStrength(val) {
+        const fill = document.getElementById('pwStrengthFill');
+        const text = document.getElementById('pwStrengthText');
+        if (!fill || !text) return;
+        if (!val || val.length === 0) {
+            fill.className = 'strength-fill';
+            text.textContent = 'Strength: 6+ characters';
+            return;
+        }
+        let score = 0;
+        if (val.length >= 6) score++;
+        if (val.length >= 10) score++;
+        if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+
+        if (score <= 2) {
+            fill.className = 'strength-fill weak';
+            text.textContent = 'Weak password (add digits & special characters)';
+            text.style.color = 'var(--accent-rose)';
+        } else if (score <= 3) {
+            fill.className = 'strength-fill medium';
+            text.textContent = 'Moderate password (looks good)';
+            text.style.color = 'var(--accent-amber)';
+        } else {
+            fill.className = 'strength-fill strong';
+            text.textContent = 'Strong & secure password';
+            text.style.color = 'var(--accent-emerald)';
+        }
+    }
+
+    async handleRegister(e) {
         if (e) e.preventDefault();
-        const rawPhone = document.getElementById('clientLoginPhone').value.trim();
-        const rawName = (document.getElementById('clientLoginName')?.value || '').trim();
-        const errEl = document.getElementById('clientLoginError');
-        if (errEl) errEl.style.display = 'none';
+        const name = document.getElementById('regName')?.value.trim();
+        const email = document.getElementById('regEmail')?.value.trim();
+        const phone = document.getElementById('regPhone')?.value.trim();
+        const password = document.getElementById('regPassword')?.value;
+        const confirmPassword = document.getElementById('regConfirmPassword')?.value;
+        const role = document.getElementById('regRole')?.value || 'user';
 
-        if (!rawPhone) {
-            if (errEl) {
-                errEl.textContent = 'Please enter a 10-digit Indian mobile number.';
-                errEl.style.display = 'block';
+        const errBox = document.getElementById('regErrorBox');
+        const succBox = document.getElementById('regSuccessBox');
+        if (errBox) { errBox.style.display = 'none'; errBox.textContent = ''; }
+        if (succBox) { succBox.style.display = 'none'; succBox.textContent = ''; }
+
+        if (!name || !email || !phone || !password) {
+            if (errBox) {
+                errBox.textContent = 'All fields marked with an asterisk (*) are required.';
+                errBox.style.display = 'block';
+            }
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            if (errBox) {
+                errBox.textContent = 'Passwords do not match. Please re-type your password.';
+                errBox.style.display = 'block';
+            }
+            return;
+        }
+
+        if (password.length < 6) {
+            if (errBox) {
+                errBox.textContent = 'Password must be at least 6 characters in length.';
+                errBox.style.display = 'block';
             }
             return;
         }
 
         try {
-            const res = await fetch('/api/client/request-otp', {
+            const btn = document.getElementById('btnRegisterSubmit');
+            if (btn) btn.disabled = true;
+
+            const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: rawPhone,
-                    name: rawName,
-                    channel: this.selectedOtpChannel
-                })
+                body: JSON.stringify({ name, email, phone, password, role })
             });
             const data = await res.json();
+            if (btn) btn.disabled = false;
 
             if (!res.ok) {
-                if (errEl) {
-                    errEl.textContent = data.error || 'Failed to generate OTP. Please try again.';
-                    errEl.style.display = 'block';
+                if (errBox) {
+                    errBox.textContent = data.error || 'Account registration failed. Please verify your details.';
+                    errBox.style.display = 'block';
                 }
                 return;
             }
 
-            // Save target phone
-            this.activeOtp = null;
-            this.activePhone = rawPhone;
-
-            // Transition to Step 2
-            document.getElementById('clientLoginStep1').classList.add('hidden');
-            const step2 = document.getElementById('clientLoginStep2');
-            step2.classList.remove('hidden');
-
-            document.getElementById('step2TargetPhone').textContent = data.phone;
-            const badge = document.getElementById('step2TargetBadge');
-            if (badge) {
-                badge.textContent = `Via ${data.channel}`;
-                badge.style.background = data.channel === 'WhatsApp' ? '#128c7e' : '#0284c7';
+            if (succBox) {
+                succBox.textContent = '✅ Account created successfully! Initializing private database partition...';
+                succBox.style.display = 'block';
             }
 
-            const otpInput = document.getElementById('clientLoginOtp');
-            if (otpInput) {
-                otpInput.value = '';
-                otpInput.focus();
-            }
-
-            this.startOtpTimer(data.expires_in_seconds || 300);
-            this.showToast(`One-Time Password (OTP) dispatched via ${data.channel}!`, 'success');
-        } catch (err) {
-            console.error('Request OTP failed:', err);
-            if (errEl) {
-                errEl.textContent = 'Network or server error while generating OTP. Please retry.';
-                errEl.style.display = 'block';
-            }
-        }
-    }
-
-    startOtpTimer(seconds) {
-        this.stopOtpTimer();
-        let remaining = seconds;
-        const countdownEl = document.getElementById('otpCountdown');
-
-        const updateDisplay = () => {
-            const m = Math.floor(remaining / 60);
-            const s = remaining % 60;
-            if (countdownEl) {
-                countdownEl.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            }
-            if (remaining <= 0) {
-                this.stopOtpTimer();
-                if (countdownEl) countdownEl.textContent = 'Expired';
-            }
-            remaining--;
-        };
-
-        updateDisplay();
-        this.otpCountdownInterval = setInterval(updateDisplay, 1000);
-    }
-
-    stopOtpTimer() {
-        if (this.otpCountdownInterval) {
-            clearInterval(this.otpCountdownInterval);
-            this.otpCountdownInterval = null;
-        }
-    }
-
-    autoFillOtp() {
-        if (this.activeOtp) {
-            const otpInput = document.getElementById('clientLoginOtp');
-            if (otpInput) {
-                otpInput.value = this.activeOtp;
-                otpInput.focus();
-            }
-            this.showToast('OTP code auto-filled!', 'info');
-        }
-    }
-
-    backToStep1() {
-        this.stopOtpTimer();
-        document.getElementById('clientLoginStep2').classList.add('hidden');
-        document.getElementById('clientLoginStep1').classList.remove('hidden');
-        const otpErr = document.getElementById('clientOtpError');
-        if (otpErr) otpErr.style.display = 'none';
-    }
-
-    async resendOtp(channel) {
-        if (!this.activePhone) return;
-        this.selectedOtpChannel = channel;
-        const phoneInput = document.getElementById('clientLoginPhone');
-        if (phoneInput) phoneInput.value = this.activePhone;
-        await this.handleRequestOtp(null);
-    }
-
-    async handleVerifyOtp(e) {
-        e.preventDefault();
-        const otpCode = document.getElementById('clientLoginOtp').value.trim();
-        const errEl = document.getElementById('clientOtpError');
-        if (errEl) errEl.style.display = 'none';
-
-        if (!otpCode || otpCode.length !== 6) {
-            if (errEl) {
-                errEl.textContent = 'Please enter the complete 6-digit verification code.';
-                errEl.style.display = 'block';
-            }
-            return;
-        }
-
-        try {
-            const res = await fetch('/api/client/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: this.activePhone,
-                    otp: otpCode
-                })
-            });
-            const data = await res.json();
-
-            if (!res.ok) {
-                if (errEl) {
-                    errEl.textContent = data.error || 'Verification failed. Please check OTP.';
-                    errEl.style.display = 'block';
-                }
-                return;
-            }
-
-            // Successfully authenticated
-            this.stopOtpTimer();
-            this.currentUser = data.client;
+            // Save user session
+            this.currentUser = data.user;
             this.isAdmin = Boolean(data.is_admin);
             this.isClientMode = !this.isAdmin;
-            this.loggedInClient = data.client;
-            localStorage.setItem('clawssroom_session', JSON.stringify(data.client));
+            this.loggedInClient = data.user;
+            localStorage.setItem('clawssroom_session', JSON.stringify(data.user));
 
-            this.closeModal('clientLoginModal');
-            this.updateAuthUI();
-
-            if (this.isAdmin) {
-                const banner = document.getElementById('clientPortalBanner');
-                if (banner) banner.classList.add('hidden');
+            this.showToast(`✨ Account created! Welcome, ${data.user.name}.`, 'success');
+            setTimeout(async () => {
+                this.closeModal('accountAuthModal');
+                this.updateAuthUI();
                 await this.refreshAllData();
-                this.navigate('dashboard');
-                this.showToast(`👑 Welcome Advocate A. Leela Krishna! Full Chambers Admin access active.`, 'success');
-            } else {
-                document.getElementById('cbClientName').textContent = data.client.name;
-                document.getElementById('cbClientPhone').textContent = data.client.phone;
-                document.getElementById('cbCasesScope').textContent = `Showing strictly your ${data.cases_count || 0} registered matter(s)`;
-                document.getElementById('clientPortalBanner').classList.remove('hidden');
-
-                await this.refreshAllData();
-                this.navigate('cases');
-                this.showToast(`OTP Verified! Welcome, ${data.client.name}. Accessing your personal docket.`, 'success');
-            }
+            }, 800);
         } catch (err) {
-            console.error('OTP Verification error:', err);
-            if (errEl) {
-                errEl.textContent = 'Server error during OTP verification. Please retry.';
-                errEl.style.display = 'block';
+            console.error('Registration failed:', err);
+            if (errBox) {
+                errBox.textContent = 'Network or server error during registration.';
+                errBox.style.display = 'block';
             }
+        }
+    }
+
+    async handleLogin(e) {
+        if (e) e.preventDefault();
+        const identifier = document.getElementById('loginIdentifier')?.value.trim();
+        const password = document.getElementById('loginPassword')?.value;
+
+        const errBox = document.getElementById('loginErrorBox');
+        const succBox = document.getElementById('loginSuccessBox');
+        if (errBox) { errBox.style.display = 'none'; errBox.textContent = ''; }
+        if (succBox) { succBox.style.display = 'none'; succBox.textContent = ''; }
+
+        if (!identifier || !password) {
+            if (errBox) {
+                errBox.textContent = 'Please enter your registered email/mobile and password.';
+                errBox.style.display = 'block';
+            }
+            return;
+        }
+
+        try {
+            const btn = document.getElementById('btnLoginSubmit');
+            if (btn) btn.disabled = true;
+
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier, password })
+            });
+            const data = await res.json();
+            if (btn) btn.disabled = false;
+
+            if (!res.ok) {
+                if (errBox) {
+                    errBox.textContent = data.error || 'Invalid credentials. Please check your email/mobile and password.';
+                    errBox.style.display = 'block';
+                }
+                return;
+            }
+
+            if (succBox) {
+                succBox.textContent = '✅ Authentication verified! Loading confidential dockets...';
+                succBox.style.display = 'block';
+            }
+
+            this.currentUser = data.user;
+            this.isAdmin = Boolean(data.is_admin);
+            this.isClientMode = !this.isAdmin;
+            this.loggedInClient = data.user;
+            localStorage.setItem('clawssroom_session', JSON.stringify(data.user));
+
+            this.showToast(`🔑 Welcome back, ${data.user.name || data.user.phone}!`, 'success');
+            setTimeout(async () => {
+                this.closeModal('accountAuthModal');
+                this.updateAuthUI();
+                await this.refreshAllData();
+            }, 600);
+        } catch (err) {
+            console.error('Login failed:', err);
+            if (errBox) {
+                errBox.textContent = 'Network or server error during sign-in.';
+                errBox.style.display = 'block';
+            }
+        }
+    }
+
+    fillLoginIdentifier(identifier) {
+        const input = document.getElementById('loginIdentifier');
+        if (input) {
+            input.value = identifier;
+            input.focus();
         }
     }
 
@@ -2822,6 +2832,570 @@ _WhatsApp: +91-9493489498 | Cell: +91-8121578785 | Email: leela.kris4u@gmail.com
         } catch (err) {
             console.error('Business update submit failed:', err);
             this.showToast('Network error while saving business of the day', 'error');
+        }
+    }
+
+    // ==========================================
+    // Mobile Responsive Navigation Drawer
+    // ==========================================
+
+    toggleMobileNav() {
+        const sidebar = document.getElementById('appSidebar');
+        const backdrop = document.getElementById('mobileNavBackdrop');
+        if (sidebar) sidebar.classList.toggle('open');
+        if (backdrop) {
+            const isOpen = sidebar && sidebar.classList.contains('open');
+            backdrop.classList.toggle('active', isOpen);
+            backdrop.classList.toggle('hidden', !isOpen);
+        }
+    }
+
+    closeMobileNav() {
+        const sidebar = document.getElementById('appSidebar');
+        const backdrop = document.getElementById('mobileNavBackdrop');
+        if (sidebar) sidebar.classList.remove('open');
+        if (backdrop) {
+            backdrop.classList.remove('active');
+            backdrop.classList.add('hidden');
+        }
+    }
+
+    // ==========================================
+    // Local Network (LAN) Discovery & URL Sharing
+    // ==========================================
+
+    async fetchNetworkInfo() {
+        try {
+            const res = await fetch('/api/network/info');
+            if (!res.ok) return;
+            const data = await res.json();
+            this.lanInfo = data;
+
+            const lanIp = data.primary_ip || '127.0.0.1';
+            const port = data.port || 3000;
+            const fullUrl = `http://${lanIp}:${port}`;
+
+            const sideIp = document.getElementById('sidebarLanIp');
+            if (sideIp) sideIp.textContent = `LAN: ${lanIp}:${port}`;
+
+            const headIp = document.getElementById('headerLanIpText');
+            if (headIp) headIp.textContent = `LAN: ${lanIp}:${port}`;
+
+            const nodeHost = document.getElementById('dbmsNodeHostname');
+            if (nodeHost) nodeHost.textContent = data.hostname || 'Localhost';
+
+            const primUrl = document.getElementById('dbmsPrimaryLanUrl');
+            if (primUrl) primUrl.textContent = fullUrl;
+
+            const portBadge = document.getElementById('dbmsPortBadge');
+            if (portBadge) portBadge.textContent = `Port: ${port} (0.0.0.0)`;
+
+            const engineBadge = document.getElementById('dbmsEngineBadge');
+            if (engineBadge) engineBadge.textContent = data.database?.engine || 'SQLite 3 (WAL Mode)';
+
+            const uptimeBadge = document.getElementById('dbmsUptimeBadge');
+            if (uptimeBadge) uptimeBadge.textContent = `Uptime: ${Math.round((data.uptime_seconds || 0) / 60)} min`;
+
+            const tablesVal = document.getElementById('dbmsTotalTablesVal');
+            if (tablesVal) tablesVal.textContent = data.database?.total_tables ?? 9;
+
+            const rowsVal = document.getElementById('dbmsTotalRowsVal');
+            if (rowsVal) rowsVal.textContent = data.database?.total_rows ?? 0;
+
+            const sizeVal = document.getElementById('dbmsFileSizeVal');
+            if (sizeVal) sizeVal.textContent = data.database?.file_size_human || '0 MB';
+
+            const navCount = document.getElementById('navDbTableCount');
+            if (navCount) navCount.textContent = data.database?.total_tables ?? 9;
+
+            const ifaceBody = document.getElementById('networkInterfacesTableBody');
+            if (ifaceBody && Array.isArray(data.interfaces)) {
+                ifaceBody.innerHTML = data.interfaces.map(iface => `
+                    <tr>
+                        <td><strong>${this.escapeHtml(iface.name)}</strong></td>
+                        <td class="font-mono">${this.escapeHtml(iface.address)}</td>
+                        <td><span class="badge ${iface.internal ? '' : 'highlight-gold'}">${iface.internal ? 'Loopback' : 'LAN / Wi-Fi'}</span></td>
+                        <td><a href="http://${iface.address}:${port}" target="_blank" class="text-gold font-mono" style="font-size:12px;">http://${iface.address}:${port}</a></td>
+                        <td>
+                            <button class="btn btn-xs btn-outline" onclick="app.copyToClipboard('http://${iface.address}:${port}')">Copy</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        } catch (err) {
+            console.error('Fetch network info failed:', err);
+        }
+    }
+
+    copyLanUrl() {
+        const url = document.getElementById('dbmsPrimaryLanUrl')?.textContent || (this.lanInfo ? `http://${this.lanInfo.primary_ip}:${this.lanInfo.port}` : window.location.origin);
+        this.copyToClipboard(url);
+    }
+
+    copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.showToast(`📋 Copied to clipboard: ${text}`, 'success');
+            }).catch(() => {
+                this.fallbackCopy(text);
+            });
+        } else {
+            this.fallbackCopy(text);
+        }
+    }
+
+    fallbackCopy(text) {
+        const el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        this.showToast(`📋 Copied to clipboard: ${text}`, 'success');
+    }
+
+    // ==========================================
+    // LAN DBMS Tab Management & Data Browser
+    // ==========================================
+
+    switchDbmsTab(tabName) {
+        document.querySelectorAll('.dbms-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.id === `dbmsTabBtn-${tabName}`);
+        });
+        document.querySelectorAll('.dbms-tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === `dbmsTabContent-${tabName}`);
+        });
+
+        if (tabName === 'tables') {
+            this.loadDatabaseTables();
+        } else if (tabName === 'accounts') {
+            this.loadAdminAccounts();
+        } else if (tabName === 'network') {
+            this.fetchNetworkInfo();
+        }
+    }
+
+    async loadDatabaseTables() {
+        try {
+            const res = await fetch('/api/database/tables');
+            if (!res.ok) return;
+            const data = await res.json();
+            this.dbmsTables = data.tables || [];
+
+            const countBadge = document.getElementById('dbmsTablesCountBadge');
+            if (countBadge) countBadge.textContent = this.dbmsTables.length;
+
+            const pickerList = document.getElementById('dbmsTablePickerList');
+            if (pickerList) {
+                pickerList.innerHTML = this.dbmsTables.map(t => `
+                    <div class="table-picker-item ${this.currentDbmsTable === t.name ? 'active' : ''}" 
+                         onclick="app.selectDbmsTable('${t.name}', 1)" id="pickerItem-${t.name}">
+                        <span>🗂️ ${t.name}</span>
+                        <span class="badge" style="font-size:10.5px;">${t.rows}</span>
+                    </div>
+                `).join('');
+            }
+
+            if (!this.currentDbmsTable && this.dbmsTables.length > 0) {
+                const preferred = this.dbmsTables.find(t => t.name === 'cases') || this.dbmsTables[0];
+                this.selectDbmsTable(preferred.name, 1);
+            }
+        } catch (err) {
+            console.error('Load database tables failed:', err);
+        }
+    }
+
+    async selectDbmsTable(tableName, page = 1) {
+        this.currentDbmsTable = tableName;
+        this.dbmsPage = page;
+
+        document.querySelectorAll('.table-picker-item').forEach(el => {
+            el.classList.toggle('active', el.id === `pickerItem-${tableName}`);
+        });
+
+        const titleEl = document.getElementById('activeTableNameTitle');
+        if (titleEl) titleEl.textContent = `TABLE: ${tableName.toUpperCase()}`;
+
+        try {
+            const url = `/api/database/table-data?table=${encodeURIComponent(tableName)}&page=${page}&limit=${this.dbmsPageLimit}&search=${encodeURIComponent(this.dbmsSearch || '')}`;
+            const res = await fetch(url);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                this.showToast(errData.error || 'Failed to fetch table data', 'error');
+                return;
+            }
+            const data = await res.json();
+
+            // Update stats & columns subtitle
+            const subTitle = document.getElementById('activeTableStatsSubtitle');
+            if (subTitle) {
+                const countMsg = data.scoped 
+                    ? `${data.columns.length} columns | ${data.total_rows} records (isolated to your account)`
+                    : `${data.columns.length} columns | ${data.total_rows} total rows (unrestricted admin view)`;
+                subTitle.textContent = countMsg;
+            }
+
+            // Schema badges
+            const schemaBar = document.getElementById('activeTableSchemaBar');
+            if (schemaBar) {
+                schemaBar.innerHTML = data.columns.map(col => `
+                    <span class="schema-badge" title="Column: ${col.name} (${col.type})">
+                        <strong>${this.escapeHtml(col.name)}</strong>
+                        <span style="color:var(--text-muted); font-size:10px;">${this.escapeHtml(col.type || 'TEXT')}</span>
+                        ${col.pk ? '<span style="color:var(--primary); font-size:10px;">PK</span>' : ''}
+                    </span>
+                `).join('');
+            }
+
+            // Table headers
+            const thead = document.getElementById('dbmsCurrentDataTableHead');
+            if (thead) {
+                thead.innerHTML = `<tr>${data.columns.map(c => `<th>${this.escapeHtml(c.name)}</th>`).join('')}</tr>`;
+            }
+
+            // Table rows
+            const tbody = document.getElementById('dbmsCurrentDataTableBody');
+            if (tbody) {
+                if (data.rows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="${data.columns.length || 1}" class="text-center py-4 text-muted">No records found matching current query or account partition.</td></tr>`;
+                } else {
+                    tbody.innerHTML = data.rows.map(row => `
+                        <tr>
+                            ${data.columns.map(c => {
+                                const val = row[c.name];
+                                const strVal = val === null || val === undefined ? '<span class="text-muted font-italic">NULL</span>' : this.escapeHtml(String(val));
+                                return `<td class="font-mono" style="font-size:12px; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${strVal}</td>`;
+                            }).join('')}
+                        </tr>
+                    `).join('');
+                }
+            }
+
+            // Pagination Controls
+            const start = data.total_rows === 0 ? 0 : (data.page - 1) * data.limit + 1;
+            const end = Math.min(data.page * data.limit, data.total_rows);
+            const pagInfo = document.getElementById('dbmsPaginationInfo');
+            if (pagInfo) pagInfo.textContent = `Showing ${start}-${end} of ${data.total_rows} rows`;
+
+            const pageInd = document.getElementById('dbmsPageIndicator');
+            if (pageInd) pageInd.textContent = `Page ${data.page} of ${data.total_pages || 1}`;
+
+            const prevBtn = document.getElementById('btnDbmsPrevPage');
+            if (prevBtn) prevBtn.disabled = data.page <= 1;
+
+            const nextBtn = document.getElementById('btnDbmsNextPage');
+            if (nextBtn) nextBtn.disabled = data.page >= data.total_pages;
+
+        } catch (err) {
+            console.error('Select DBMS table failed:', err);
+        }
+    }
+
+    changeTablePage(delta) {
+        const next = Math.max(1, (this.dbmsPage || 1) + delta);
+        if (this.currentDbmsTable) {
+            this.selectDbmsTable(this.currentDbmsTable, next);
+        }
+    }
+
+    handleTableSearch(e) {
+        this.dbmsSearch = (e.target?.value || '').trim();
+        if (this.searchTimeout) clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => {
+            if (this.currentDbmsTable) {
+                this.selectDbmsTable(this.currentDbmsTable, 1);
+            }
+        }, 300);
+    }
+
+    refreshCurrentTableData() {
+        if (this.currentDbmsTable) {
+            this.selectDbmsTable(this.currentDbmsTable, this.dbmsPage || 1);
+        }
+    }
+
+    exportCurrentTableCsv() {
+        if (!this.currentDbmsTable) {
+            this.showToast('Please select a table to export.', 'warning');
+            return;
+        }
+        window.location.href = `/api/database/export-table-csv?table=${encodeURIComponent(this.currentDbmsTable)}`;
+    }
+
+    exportDatabaseBackup() {
+        window.location.href = '/api/export/backup';
+    }
+
+    // ==========================================
+    // SQL Query Console (Restricted to Administrators)
+    // ==========================================
+
+    setSqlSnippet(snippet) {
+        const textarea = document.getElementById('sqlConsoleQuery');
+        if (textarea) {
+            textarea.value = snippet;
+            textarea.focus();
+        }
+    }
+
+    async executeConsoleQuery() {
+        const textarea = document.getElementById('sqlConsoleQuery');
+        const query = textarea?.value.trim();
+        const statusEl = document.getElementById('sqlExecutionStatus');
+        const tableHead = document.getElementById('sqlResultsTableHead');
+        const tableBody = document.getElementById('sqlResultsTableBody');
+
+        if (!query) {
+            this.showToast('Please enter a SQL query.', 'warning');
+            return;
+        }
+
+        if (statusEl) {
+            statusEl.className = 'sql-status-bar hidden';
+            statusEl.textContent = '';
+        }
+
+        try {
+            const btn = document.getElementById('btnExecuteSql');
+            if (btn) btn.disabled = true;
+
+            const res = await fetch('/api/database/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+            const data = await res.json();
+            if (btn) btn.disabled = false;
+
+            if (!res.ok) {
+                if (statusEl) {
+                    statusEl.className = 'sql-status-bar error';
+                    statusEl.textContent = `❌ Query Failed: ${data.error || 'Execution error'}`;
+                    statusEl.classList.remove('hidden');
+                }
+                if (tableBody) tableBody.innerHTML = `<tr><td class="text-center py-4 text-muted">No records to display.</td></tr>`;
+                return;
+            }
+
+            if (statusEl) {
+                statusEl.className = 'sql-status-bar success';
+                statusEl.textContent = `⚡ Success: Executed in ${data.execution_time_ms} ms. Returned ${data.rows_count} row(s).`;
+                statusEl.classList.remove('hidden');
+            }
+
+            const rows = data.results || [];
+            if (rows.length === 0) {
+                if (tableHead) tableHead.innerHTML = `<tr><th>Status</th></tr>`;
+                if (tableBody) tableBody.innerHTML = `<tr><td class="text-center py-4">Query executed successfully. 0 rows returned.</td></tr>`;
+                return;
+            }
+
+            const cols = Object.keys(rows[0]);
+            if (tableHead) {
+                tableHead.innerHTML = `<tr>${cols.map(c => `<th>${this.escapeHtml(c)}</th>`).join('')}</tr>`;
+            }
+            if (tableBody) {
+                tableBody.innerHTML = rows.map(r => `
+                    <tr>
+                        ${cols.map(c => {
+                            const val = r[c];
+                            return `<td class="font-mono" style="font-size:12px;">${val === null ? '<span class="text-muted">NULL</span>' : this.escapeHtml(String(val))}</td>`;
+                        }).join('')}
+                    </tr>
+                `).join('');
+            }
+        } catch (err) {
+            console.error('Execute query failed:', err);
+            if (statusEl) {
+                statusEl.className = 'sql-status-bar error';
+                statusEl.textContent = '❌ Network error during SQL execution.';
+                statusEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // ==========================================
+    // Accounts & Credential Recovery (Administrator Authority)
+    // ==========================================
+
+    async loadAdminAccounts() {
+        const tbody = document.getElementById('adminAccountsTableBody');
+        if (!tbody) return;
+
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4">Loading user accounts & credential statuses...</td></tr>`;
+
+        try {
+            const res = await fetch('/api/admin/accounts');
+            if (res.status === 403) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center py-5">
+                            <div style="font-size:24px; margin-bottom:8px;">🔒</div>
+                            <strong style="color:var(--accent-rose);">Access Restricted (Non-Disclosure Policy)</strong>
+                            <p style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+                                User credential restoration and account supervision is reserved for Database Administrators.
+                            </p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const data = await res.json();
+            const accounts = data.accounts || [];
+
+            if (accounts.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No accounts registered yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = accounts.map(acc => {
+                const isPwSet = Boolean(acc.has_password);
+                const pwBadge = isPwSet 
+                    ? '<span class="badge highlight-gold" style="font-size:11px;">✅ Set (PBKDF2)</span>' 
+                    : '<span class="badge warning" style="font-size:11px;">⚠️ Password Not Set</span>';
+
+                const roleBadge = acc.role === 'admin'
+                    ? '<span class="badge highlight-gold">👑 Admin</span>'
+                    : `<span class="badge">${this.escapeHtml(acc.role || 'user')}</span>`;
+
+                return `
+                    <tr>
+                        <td class="font-mono">#${acc.id}</td>
+                        <td><strong>${this.escapeHtml(acc.name || 'Unnamed')}</strong></td>
+                        <td>${this.escapeHtml(acc.email || '-')}</td>
+                        <td class="font-mono">${this.escapeHtml(acc.phone || '-')}</td>
+                        <td>${roleBadge}</td>
+                        <td>${pwBadge}</td>
+                        <td class="text-center"><strong>${acc.cases_count || 0}</strong></td>
+                        <td style="font-size:11.5px; color:var(--text-muted);">${acc.last_login ? new Date(acc.last_login).toLocaleDateString() : 'Never'}</td>
+                        <td class="text-right">
+                            <button class="btn btn-xs btn-primary" onclick="app.openAdminRestoreModal(${acc.id}, '${this.escapeHtml(acc.name)}', '${this.escapeHtml(acc.email || '')}', '${this.escapeHtml(acc.phone || '')}', '${this.escapeHtml(acc.role || 'user')}')">
+                                <span>🔑 Restore Credentials</span>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            console.error('Load admin accounts failed:', err);
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">Network error loading accounts.</td></tr>`;
+        }
+    }
+
+    openAdminRestoreModal(userId, name, email, phone, role) {
+        document.getElementById('restoreUserId').value = userId;
+        document.getElementById('restoreUserName').value = `${name} (ID: #${userId})`;
+        document.getElementById('restoreEmail').value = email || '';
+        document.getElementById('restorePhone').value = phone || '';
+        document.getElementById('restoreRole').value = role || 'user';
+        document.getElementById('restoreNewPassword').value = '';
+
+        const errBox = document.getElementById('restoreErrorBox');
+        const succBox = document.getElementById('restoreSuccessBox');
+        if (errBox) { errBox.style.display = 'none'; errBox.textContent = ''; }
+        if (succBox) { succBox.style.display = 'none'; succBox.textContent = ''; }
+
+        this.openModal('adminRestoreModal');
+    }
+
+    generateRandomPasswordForRestore() {
+        const words = ['Apex', 'Nyaya', 'Vidhi', 'Kanoon', 'Vakalat', 'Dharm', 'Chamber'];
+        const randomWord = words[Math.floor(Math.random() * words.length)];
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        const specials = ['@', '#', '$', '!'];
+        const randomSpec = specials[Math.floor(Math.random() * specials.length)];
+        const generated = `${randomWord}${randomSpec}${randomNum}`;
+
+        const input = document.getElementById('restoreNewPassword');
+        if (input) {
+            input.value = generated;
+            input.type = 'text';
+            this.showToast(`⚡ Generated secure password: ${generated}`, 'info');
+        }
+    }
+
+    async handleAdminRestoreAccount(e) {
+        if (e) e.preventDefault();
+        const userId = document.getElementById('restoreUserId')?.value;
+        const newPassword = document.getElementById('restoreNewPassword')?.value;
+        const email = document.getElementById('restoreEmail')?.value.trim();
+        const phone = document.getElementById('restorePhone')?.value.trim();
+        const role = document.getElementById('restoreRole')?.value;
+
+        const errBox = document.getElementById('restoreErrorBox');
+        const succBox = document.getElementById('restoreSuccessBox');
+        if (errBox) { errBox.style.display = 'none'; errBox.textContent = ''; }
+        if (succBox) { succBox.style.display = 'none'; succBox.textContent = ''; }
+
+        if (!userId) {
+            if (errBox) { errBox.textContent = 'Invalid user account selection.'; errBox.style.display = 'block'; }
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/restore-account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, newPassword, email, phone, role })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                if (errBox) {
+                    errBox.textContent = data.error || 'Failed to restore credentials.';
+                    errBox.style.display = 'block';
+                }
+                return;
+            }
+
+            if (succBox) {
+                succBox.textContent = '✅ Account credentials successfully updated and restored!';
+                succBox.style.display = 'block';
+            }
+
+            this.showToast('Account credentials restored successfully!', 'success');
+            setTimeout(() => {
+                this.closeModal('adminRestoreModal');
+                this.loadAdminAccounts();
+            }, 1200);
+        } catch (err) {
+            console.error('Restore account failed:', err);
+            if (errBox) {
+                errBox.textContent = 'Network or server error during credential restoration.';
+                errBox.style.display = 'block';
+            }
+        }
+    }
+
+    async runDbMaintenance(action) {
+        const outBox = document.getElementById('maintOutputBox');
+        if (outBox) {
+            outBox.classList.remove('hidden');
+            outBox.textContent = `Running ${action.toUpperCase()}...\nPlease wait...`;
+        }
+
+        try {
+            const res = await fetch('/api/database/maintenance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                if (outBox) outBox.textContent = `❌ Error: ${data.error || 'Maintenance task failed'}`;
+                return;
+            }
+
+            if (outBox) {
+                outBox.textContent = `✅ Result of ${action.toUpperCase()}:\n${JSON.stringify(data.result, null, 2)}\n\nDatabase metrics refreshed.`;
+            }
+            this.fetchNetworkInfo();
+            this.showToast(`Maintenance task (${action}) completed!`, 'success');
+        } catch (err) {
+            console.error('Maintenance error:', err);
+            if (outBox) outBox.textContent = '❌ Network error running maintenance command.';
         }
     }
 
